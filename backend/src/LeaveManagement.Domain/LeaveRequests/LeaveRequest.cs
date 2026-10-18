@@ -1,5 +1,6 @@
 using LeaveManagement.Domain.Common;
 using LeaveManagement.Domain.Employees;
+using LeaveManagement.Domain.Entitlements;
 
 namespace LeaveManagement.Domain.LeaveRequests;
 
@@ -119,6 +120,11 @@ public sealed class LeaveRequest
             context.Now.ToUniversalTime());
         leaveRequest._days.AddRange(days);
 
+        if (leaveRequest.Type == LeaveType.Vacation)
+        {
+            EnsureEntitlementCovers(leaveRequest, activeRequests, context.Entitlements);
+        }
+
         return leaveRequest;
     }
 
@@ -154,6 +160,23 @@ public sealed class LeaveRequest
 
     private static LeaveRequestStatus InitialStatus(LeaveType type) =>
         type == LeaveType.SickLeave ? LeaveRequestStatus.Approved : LeaveRequestStatus.Pending;
+
+    // The whole allocation is recalculated: an earlier new request can take days that a later,
+    // already planned request relied on, so every request must still be covered afterwards.
+    private static void EnsureEntitlementCovers(
+        LeaveRequest newRequest,
+        IEnumerable<LeaveRequest> activeRequests,
+        IEnumerable<LeaveEntitlement> entitlements)
+    {
+        var balance = LeaveBalanceCalculator.Calculate(
+            entitlements.Where(entitlement => entitlement.EmployeeId == newRequest.EmployeeId),
+            activeRequests.Append(newRequest));
+
+        if (!balance.IsCovered)
+        {
+            throw LeaveRequestErrors.InsufficientBalanceViolation(balance.UncoveredDays);
+        }
+    }
 
     private static string? NormalizeComment(string? comment)
     {

@@ -1,4 +1,5 @@
 using LeaveManagement.Domain.Employees;
+using LeaveManagement.Domain.Entitlements;
 using LeaveManagement.Domain.LeaveRequests;
 using LeaveManagement.Domain.Tests.TestData;
 
@@ -139,6 +140,63 @@ public sealed class LeaveRequestSubmitTests
             _employee, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12), existingRequests: [colleagues]);
 
         Assert.Equal(LeaveRequestStatus.Pending, request.Status);
+    }
+
+    [Fact]
+    public void Submit_VacationExceedsEntitlement_Throws()
+    {
+        AssertRule.Violated(
+            LeaveRequestErrors.InsufficientBalance,
+            () => TestRequests.Submit(
+                _employee,
+                new DateOnly(2026, 6, 8),
+                new DateOnly(2026, 6, 12),
+                entitlements: [LeaveEntitlement.Create(_employee.Id, 2026, 4m)]));
+    }
+
+    [Fact]
+    public void Submit_PendingRequestsReserveDays_Throws()
+    {
+        List<LeaveEntitlement> entitlements = [LeaveEntitlement.Create(_employee.Id, 2026, 7m)];
+        var pending = TestRequests.Submit(
+            _employee, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12), entitlements: entitlements);
+
+        AssertRule.Violated(
+            LeaveRequestErrors.InsufficientBalance,
+            () => TestRequests.Submit(
+                _employee,
+                new DateOnly(2026, 8, 3),
+                new DateOnly(2026, 8, 5),
+                existingRequests: [pending],
+                entitlements: entitlements));
+    }
+
+    [Fact]
+    public void Submit_EarlierRequestTakesDaysOfPlannedLaterRequest_Throws()
+    {
+        List<LeaveEntitlement> entitlements = [LeaveEntitlement.Create(_employee.Id, 2026, 10m)];
+        var january = TestRequests.Submit(
+            _employee, new DateOnly(2027, 1, 11), new DateOnly(2027, 1, 15), entitlements: entitlements);
+
+        AssertRule.Violated(
+            LeaveRequestErrors.InsufficientBalance,
+            () => TestRequests.Submit(
+                _employee,
+                new DateOnly(2026, 8, 3),
+                new DateOnly(2026, 8, 10),
+                existingRequests: [january],
+                entitlements: entitlements));
+    }
+
+    [Theory]
+    [InlineData(LeaveType.TimeOffInLieu)]
+    [InlineData(LeaveType.SickLeave)]
+    public void Submit_OtherLeaveTypeWithoutEntitlement_IsAllowed(LeaveType type)
+    {
+        var request = TestRequests.Submit(
+            _employee, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12), type, entitlements: []);
+
+        Assert.Equal(5m, request.WorkingDays);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Globalization;
 using LeaveManagement.Domain.Common;
 
 namespace LeaveManagement.Domain.LeaveRequests;
@@ -9,6 +10,7 @@ public static class LeaveRequestErrors
     public const string StartsBeforeEntryDate = "leave_request.starts_before_entry_date";
     public const string NoWorkingDays = "leave_request.no_working_days";
     public const string Overlapping = "leave_request.overlapping";
+    public const string InsufficientBalance = "leave_request.insufficient_balance";
     public const string NotPending = "leave_request.not_pending";
     public const string OwnRequest = "leave_request.own_request";
     public const string NotResponsibleManager = "leave_request.not_responsible_manager";
@@ -26,6 +28,13 @@ public static class LeaveRequestErrors
 
     internal static BusinessRuleViolationException OverlappingViolation() =>
         new(Overlapping, "The period overlaps with another pending or approved request.");
+
+    internal static BusinessRuleViolationException InsufficientBalanceViolation(decimal uncoveredDays) =>
+        new(
+            InsufficientBalance,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"The leave entitlement does not cover {uncoveredDays} of the requested or already planned working days."));
 
     internal static BusinessRuleViolationException NotPendingViolation(LeaveRequestStatus status) =>
         new(NotPending, $"Only pending requests can be decided; this one is {status}.");
