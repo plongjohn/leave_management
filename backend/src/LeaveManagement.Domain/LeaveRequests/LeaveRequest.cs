@@ -17,6 +17,7 @@ public sealed class LeaveRequest
         DateOnly startDate,
         DateOnly endDate,
         LeaveType type,
+        SpecialLeaveReason? specialLeaveReason,
         decimal workingDays,
         LeaveRequestStatus status,
         string? comment,
@@ -27,6 +28,7 @@ public sealed class LeaveRequest
         StartDate = startDate;
         EndDate = endDate;
         Type = type;
+        SpecialLeaveReason = specialLeaveReason;
         WorkingDays = workingDays;
         Status = status;
         Comment = comment;
@@ -42,6 +44,9 @@ public sealed class LeaveRequest
     public DateOnly EndDate { get; private set; }
 
     public LeaveType Type { get; private set; }
+
+    /// <summary>Set for special leave only.</summary>
+    public SpecialLeaveReason? SpecialLeaveReason { get; private set; }
 
     public decimal WorkingDays { get; private set; }
 
@@ -78,6 +83,7 @@ public sealed class LeaveRequest
 
         var period = draft.Period;
         var comment = NormalizeComment(draft.Comment);
+        EnsureReasonMatchesType(draft);
 
         if (period.Start < employee.EntryDate)
         {
@@ -114,6 +120,7 @@ public sealed class LeaveRequest
             period.Start,
             period.End,
             draft.Type,
+            draft.SpecialLeaveReason,
             days.Sum(day => day.WorkingDays),
             InitialStatus(draft.Type),
             comment,
@@ -123,6 +130,11 @@ public sealed class LeaveRequest
         if (leaveRequest.Type == LeaveType.Vacation)
         {
             EnsureEntitlementCovers(leaveRequest, activeRequests, context.Entitlements);
+        }
+
+        if (leaveRequest.Type == LeaveType.SpecialLeave)
+        {
+            SpecialLeavePolicy.EnsureWithinLimits(leaveRequest, employee, activeRequests);
         }
 
         return leaveRequest;
@@ -160,6 +172,24 @@ public sealed class LeaveRequest
 
     private static LeaveRequestStatus InitialStatus(LeaveType type) =>
         type == LeaveType.SickLeave ? LeaveRequestStatus.Approved : LeaveRequestStatus.Pending;
+
+    private static void EnsureReasonMatchesType(LeaveRequestDraft draft)
+    {
+        if (draft.Type == LeaveType.SpecialLeave && draft.SpecialLeaveReason is null)
+        {
+            throw LeaveRequestErrors.SpecialLeaveReasonRequiredViolation();
+        }
+
+        if (draft.Type != LeaveType.SpecialLeave && draft.SpecialLeaveReason is not null)
+        {
+            throw LeaveRequestErrors.SpecialLeaveReasonNotAllowedViolation();
+        }
+
+        if (draft.SpecialLeaveReason is { } reason && !Enum.IsDefined(reason))
+        {
+            throw new ArgumentOutOfRangeException(nameof(draft), "Unknown special leave reason.");
+        }
+    }
 
     // The whole allocation is recalculated: an earlier new request can take days that a later,
     // already planned request relied on, so every request must still be covered afterwards.

@@ -21,9 +21,10 @@ internal static class TestRequests
         IReadOnlyCollection<LeaveRequest>? existingRequests = null,
         IReadOnlyCollection<LeaveEntitlement>? entitlements = null,
         DateOnly? today = null,
-        string? comment = null)
+        string? comment = null,
+        SpecialLeaveReason? specialLeaveReason = null)
     {
-        var draft = new LeaveRequestDraft(new DateRange(start, end), type, comment);
+        var draft = new LeaveRequestDraft(new DateRange(start, end), type, comment, specialLeaveReason);
         var context = new SubmissionContext(
             TestCalendars.Austria,
             existingRequests ?? [],
