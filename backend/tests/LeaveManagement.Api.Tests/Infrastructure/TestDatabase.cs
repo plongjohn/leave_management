@@ -55,7 +55,8 @@ public sealed class TestDatabase : IAsyncDisposable
         {
             DbAdapter = DbAdapter.Postgres,
             SchemasToInclude = ["public"],
-            TablesToIgnore = [new Table("__EFMigrationsHistory")],
+            // Holidays are reference data inserted by a migration and must survive the reset.
+            TablesToIgnore = [new Table("__EFMigrationsHistory"), new Table("holidays")],
         });
 
         await _respawner.ResetAsync(connection);

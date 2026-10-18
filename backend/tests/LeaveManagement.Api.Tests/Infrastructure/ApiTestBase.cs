@@ -29,4 +29,7 @@ public abstract class ApiTestBase(ApiTestFixture fixture) : IAsyncLifetime
         arrange(dbContext);
         await dbContext.SaveChangesAsync(CancellationToken);
     }
+
+    /// <summary>A new scope with its own DbContext, e.g. to simulate a second concurrent request.</summary>
+    protected AsyncServiceScope CreateScope() => fixture.Factory.Services.CreateAsyncScope();
 }
