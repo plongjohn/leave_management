@@ -1,6 +1,7 @@
 # 0002 – PostgreSQL, run in Docker
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [ADR 0005](0005-local-postgresql-without-docker.md) –
+  PostgreSQL stays; Docker and Testcontainers are replaced by a local installation.
 - **Date:** 2026-10-18
 
 ## Context
