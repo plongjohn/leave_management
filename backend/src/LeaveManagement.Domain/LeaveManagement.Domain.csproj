@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The domain references no other project and no infrastructure package (ADR 0001). -->
+
+</Project>
