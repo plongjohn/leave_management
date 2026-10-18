@@ -96,7 +96,8 @@ LeaveManagement.Domain         → (nothing)
 - Self-issued JWT: short-lived access token, rotating refresh token stored hashed,
   refresh token only in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie (see ADR).
 - Authorization through policies/roles on every endpoint; deny by default.
-- Secrets never in Git – use user secrets or environment variables locally.
+- Secrets never in Git, not even development passwords – locally they come from environment
+  variables (ADR 0005).
 - Logs contain ids, never personal data or tokens.
 
 ## Frontend (Angular)
@@ -113,8 +114,9 @@ LeaveManagement.Domain         → (nothing)
 ## Tests
 
 - **Domain:** unit tests for every business rule (xUnit), no mocks needed.
-- **API:** integration tests with `WebApplicationFactory` and a real PostgreSQL via
-  Testcontainers – no EF Core in-memory provider.
+- **API:** integration tests with `WebApplicationFactory` against a real PostgreSQL – one
+  database per test run, reset with Respawn before each test (ADR 0005). No EF Core
+  in-memory provider.
 - **Frontend:** tests for services and components with logic.
 - Arrange / Act / Assert; test names `Method_State_ExpectedResult`
   (e.g. `Approve_RequestAlreadyRejected_Throws`).
