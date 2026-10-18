@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [development, main]
+  pull_request:
+    branches: [development, main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (build, migrations, tests)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Same major version as on the development machines (ADR 0005).
+        image: postgres:18
+        env:
+          # Throwaway container that only exists for this job.
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      LEAVE_MANAGEMENT_TEST_DB: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=postgres
+      DOTNET_NOLOGO: true
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: backend/global.json
+
+      - name: Restore
+        run: |
+          dotnet restore
+          dotnet tool restore
+
+      - name: Build
+        run: dotnet build --no-restore -warnaserror
+
+      - name: Check that migrations match the model
+        env:
+          ConnectionStrings__LeaveManagement: ${{ env.LEAVE_MANAGEMENT_TEST_DB }}
+        run: >-
+          dotnet ef migrations has-pending-model-changes
+          --project src/LeaveManagement.Infrastructure
+          --startup-project src/LeaveManagement.Api
+          --no-build
+
+      - name: Test
+        run: dotnet test --no-build
+
+  frontend:
+    name: Frontend (lint, format, tests, build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test -- --watch=false
+      - run: npm run build
