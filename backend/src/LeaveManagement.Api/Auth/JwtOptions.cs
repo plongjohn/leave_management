@@ -2,7 +2,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace LeaveManagement.Api.Auth;
 
-/// <summary>Settings for issuing and validating access tokens (section <c>Jwt</c>).</summary>
+/// <summary>Settings for issuing and validating access and refresh tokens (section <c>Jwt</c>).</summary>
 internal sealed class JwtOptions
 {
     public const string SectionName = "Jwt";
@@ -18,6 +18,9 @@ internal sealed class JwtOptions
     public string SigningKey { get; set; } = string.Empty;
 
     public TimeSpan AccessTokenLifetime { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>Every refresh issues a new token with the full lifetime, so a session ends after this much inactivity.</summary>
+    public TimeSpan RefreshTokenLifetime { get; set; } = TimeSpan.FromDays(7);
 
     public SymmetricSecurityKey CreateSigningKey() => new(Convert.FromBase64String(SigningKey));
 }

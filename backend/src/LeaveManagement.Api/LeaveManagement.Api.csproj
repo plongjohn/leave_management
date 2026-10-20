@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="LeaveManagement.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LeaveManagement.Domain\LeaveManagement.Domain.csproj" />
     <ProjectReference Include="..\LeaveManagement.Infrastructure\LeaveManagement.Infrastructure.csproj" />
   </ItemGroup>

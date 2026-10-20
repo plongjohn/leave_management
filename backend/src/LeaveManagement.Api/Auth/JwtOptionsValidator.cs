@@ -31,6 +31,11 @@ internal sealed class JwtOptionsValidator : IValidateOptions<JwtOptions>
             failures.Add("Jwt:AccessTokenLifetime must be positive.");
         }
 
+        if (options.RefreshTokenLifetime <= options.AccessTokenLifetime)
+        {
+            failures.Add("Jwt:RefreshTokenLifetime must be longer than Jwt:AccessTokenLifetime.");
+        }
+
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 

@@ -12,18 +12,24 @@ internal static class AuthEndpoints
         services.AddLoginRateLimiting(configuration);
         services.AddAuthorization();
         services.AddScoped<AuthService>();
+        services.AddScoped<RefreshTokenService>();
+        services.AddHostedService<RefreshTokenCleanupService>();
         return services;
     }
 
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var auth = endpoints.MapGroup("/api/auth").WithTags("Auth");
+        // Login, refresh and logout work without an access token: it may have expired.
+        var auth = endpoints.MapGroup("/api/auth").WithTags("Auth").AllowAnonymous();
 
         auth.MapPost("/login", LoginAsync)
             .WithName("Login")
-            .AllowAnonymous()
             .RequireRateLimiting(LoginRateLimiting.PolicyName)
             .WithValidation<LoginRequest>();
+
+        auth.MapPost("/refresh", RefreshAsync).WithName("RefreshToken");
+
+        auth.MapPost("/logout", LogoutAsync).WithName("Logout");
 
         endpoints.MapGet("/api/me", GetCurrentUserAsync)
             .WithName("GetCurrentUser")
@@ -36,16 +42,56 @@ internal static class AuthEndpoints
     private static async Task<Results<Ok<AccessTokenResponse>, ProblemHttpResult>> LoginAsync(
         LoginRequest request,
         AuthService authService,
+        HttpResponse response,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var accessToken = await authService.LoginAsync(request, cancellationToken);
-        if (accessToken is null)
+        var tokens = await authService.LoginAsync(request, cancellationToken);
+        if (tokens is null)
         {
-            return LoginFailed();
+            // Same answer for unknown email, wrong password and lockout (ADR 0004).
+            return Unauthorized(
+                AuthErrors.LoginFailed,
+                "Login failed.",
+                "The email or the password is wrong, or the account is temporarily locked.");
         }
 
-        return TypedResults.Ok(ToResponse(accessToken, timeProvider));
+        RefreshTokenCookie.Append(response, tokens.RefreshToken);
+        return TypedResults.Ok(ToResponse(tokens.AccessToken, timeProvider));
+    }
+
+    private static async Task<Results<Ok<AccessTokenResponse>, ProblemHttpResult>> RefreshAsync(
+        HttpRequest request,
+        HttpResponse response,
+        AuthService authService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var refreshToken = RefreshTokenCookie.Read(request);
+        var tokens = refreshToken is null ? null : await authService.RefreshAsync(refreshToken, cancellationToken);
+        if (tokens is null)
+        {
+            RefreshTokenCookie.Delete(response);
+            return Unauthorized(AuthErrors.RefreshFailed, "Session expired.", "Please sign in again.");
+        }
+
+        RefreshTokenCookie.Append(response, tokens.RefreshToken);
+        return TypedResults.Ok(ToResponse(tokens.AccessToken, timeProvider));
+    }
+
+    private static async Task<NoContent> LogoutAsync(
+        HttpRequest request,
+        HttpResponse response,
+        AuthService authService,
+        CancellationToken cancellationToken)
+    {
+        if (RefreshTokenCookie.Read(request) is { } refreshToken)
+        {
+            await authService.LogoutAsync(refreshToken, cancellationToken);
+        }
+
+        RefreshTokenCookie.Delete(response);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<CurrentUserResponse>, NotFound>> GetCurrentUserAsync(
@@ -57,13 +103,12 @@ internal static class AuthEndpoints
         return currentUser is null ? TypedResults.NotFound() : TypedResults.Ok(currentUser);
     }
 
-    // Same answer for unknown email, wrong password and lockout (ADR 0004).
-    private static ProblemHttpResult LoginFailed() =>
+    private static ProblemHttpResult Unauthorized(string code, string title, string detail) =>
         TypedResults.Problem(
             statusCode: StatusCodes.Status401Unauthorized,
-            title: "Login failed.",
-            detail: "The email or the password is wrong, or the account is temporarily locked.",
-            extensions: new Dictionary<string, object?> { ["code"] = AuthErrors.LoginFailed });
+            title: title,
+            detail: detail,
+            extensions: new Dictionary<string, object?> { ["code"] = code });
 
     private static AccessTokenResponse ToResponse(AccessToken accessToken, TimeProvider timeProvider)
     {

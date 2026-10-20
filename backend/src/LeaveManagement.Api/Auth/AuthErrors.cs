@@ -4,4 +4,5 @@ namespace LeaveManagement.Api.Auth;
 public static class AuthErrors
 {
     public const string LoginFailed = "auth.login_failed";
+    public const string RefreshFailed = "auth.refresh_failed";
 }

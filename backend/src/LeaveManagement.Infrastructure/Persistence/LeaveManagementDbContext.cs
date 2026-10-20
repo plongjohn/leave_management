@@ -25,6 +25,8 @@ public sealed class LeaveManagementDbContext(DbContextOptions<LeaveManagementDbC
 
     public DbSet<Holiday> Holidays => Set<Holiday>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Identity's configuration first, so our configurations can refine it.

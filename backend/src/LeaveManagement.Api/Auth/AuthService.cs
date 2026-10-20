@@ -10,14 +10,15 @@ internal sealed partial class AuthService(
     SignInManager<ApplicationUser> signInManager,
     LeaveManagementDbContext dbContext,
     AccessTokenIssuer accessTokenIssuer,
+    RefreshTokenService refreshTokens,
     ILogger<AuthService> logger)
 {
     // Hashed once; verifying against it costs as much as checking a real password.
     private static readonly Lazy<string> UnknownUserPasswordHash =
         new(() => new PasswordHasher<ApplicationUser>().HashPassword(new ApplicationUser(), Guid.NewGuid().ToString()));
 
-    /// <returns>The access token, or <c>null</c> if the email, the password or the lockout prevents the login.</returns>
-    public async Task<AccessToken?> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
+    /// <returns>The tokens of a new session, or <c>null</c> if the email, the password or the lockout prevents the login.</returns>
+    public async Task<SignInTokens?> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByEmailAsync(request.Email);
         if (user is null)
@@ -34,8 +35,31 @@ internal sealed partial class AuthService(
             return null;
         }
 
-        return await IssueAccessTokenAsync(user, cancellationToken);
+        var refreshToken = await refreshTokens.IssueAsync(user.Id, cancellationToken);
+        var accessToken = await IssueAccessTokenAsync(user.Id, user.EmployeeId, cancellationToken);
+        return new SignInTokens(accessToken, refreshToken);
     }
+
+    /// <returns>New tokens of the same session, or <c>null</c> if the refresh token is not valid (any more).</returns>
+    public async Task<SignInTokens?> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var rotation = await refreshTokens.RotateAsync(refreshToken, cancellationToken);
+        if (rotation is null)
+        {
+            return null;
+        }
+
+        var employeeId = await dbContext.Users
+            .Where(user => user.Id == rotation.UserId)
+            .Select(user => user.EmployeeId)
+            .SingleAsync(cancellationToken);
+
+        var accessToken = await IssueAccessTokenAsync(rotation.UserId, employeeId, cancellationToken);
+        return new SignInTokens(accessToken, rotation.NewToken);
+    }
+
+    public Task LogoutAsync(string refreshToken, CancellationToken cancellationToken) =>
+        refreshTokens.RevokeAsync(refreshToken, cancellationToken);
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(Guid employeeId, CancellationToken cancellationToken)
     {
@@ -51,15 +75,15 @@ internal sealed partial class AuthService(
             .SingleOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<AccessToken> IssueAccessTokenAsync(ApplicationUser user, CancellationToken cancellationToken)
+    private async Task<AccessToken> IssueAccessTokenAsync(Guid userId, Guid employeeId, CancellationToken cancellationToken)
     {
-        // Read at every token issue, so a changed role applies with the next token.
+        // Read at every token issue, so a changed role applies with the next refresh.
         var role = await dbContext.Employees
-            .Where(employee => employee.Id == user.EmployeeId)
+            .Where(employee => employee.Id == employeeId)
             .Select(employee => employee.Role)
             .SingleAsync(cancellationToken);
 
-        return accessTokenIssuer.Create(user.Id, user.EmployeeId, role);
+        return accessTokenIssuer.Create(userId, employeeId, role);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Login failed for user {UserId} (locked out: {IsLockedOut})")]
