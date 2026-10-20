@@ -7,10 +7,11 @@ namespace LeaveManagement.Infrastructure;
 
 public static class DependencyInjection
 {
+    /// <param name="developmentSeed">Seeds demo data after migrating; <c>null</c> outside Development.</param>
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         string connectionString,
-        bool seedDevelopmentData)
+        DevelopmentSeedOptions? developmentSeed)
     {
         services.AddDbContext<LeaveManagementDbContext>(options =>
         {
@@ -20,12 +21,12 @@ public static class DependencyInjection
 
             // EF Core runs these hooks after migrating; the tooling (dotnet ef) uses the
             // synchronous one, the application the asynchronous one.
-            if (seedDevelopmentData)
+            if (developmentSeed is not null)
             {
                 options
-                    .UseSeeding((context, _) => DevelopmentDataSeeder.Seed(context))
+                    .UseSeeding((context, _) => DevelopmentDataSeeder.Seed(context, developmentSeed))
                     .UseAsyncSeeding((context, _, cancellationToken) =>
-                        DevelopmentDataSeeder.SeedAsync(context, cancellationToken));
+                        DevelopmentDataSeeder.SeedAsync(context, developmentSeed, cancellationToken));
             }
         });
 

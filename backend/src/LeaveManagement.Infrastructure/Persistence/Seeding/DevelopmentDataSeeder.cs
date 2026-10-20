@@ -3,6 +3,8 @@ using LeaveManagement.Domain.Employees;
 using LeaveManagement.Domain.Entitlements;
 using LeaveManagement.Domain.Holidays;
 using LeaveManagement.Domain.LeaveRequests;
+using LeaveManagement.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace LeaveManagement.Infrastructure.Persistence.Seeding;
@@ -16,7 +18,7 @@ internal static class DevelopmentDataSeeder
 {
     private const int DaysPerWeek = 7;
 
-    public static void Seed(DbContext context)
+    public static void Seed(DbContext context, DevelopmentSeedOptions options)
     {
         if (!context.Set<Employee>().Any())
         {
@@ -29,9 +31,15 @@ internal static class DevelopmentDataSeeder
             AddLeaveData(context, context.Set<Employee>().ToList(), context.Set<Holiday>().ToList());
             context.SaveChanges();
         }
+
+        if (!context.Set<ApplicationUser>().Any())
+        {
+            context.Set<ApplicationUser>().AddRange(CreateUsers(context.Set<Employee>().ToList(), options.UserPassword));
+            context.SaveChanges();
+        }
     }
 
-    public static async Task SeedAsync(DbContext context, CancellationToken cancellationToken)
+    public static async Task SeedAsync(DbContext context, DevelopmentSeedOptions options, CancellationToken cancellationToken)
     {
         if (!await context.Set<Employee>().AnyAsync(cancellationToken))
         {
@@ -46,6 +54,41 @@ internal static class DevelopmentDataSeeder
             AddLeaveData(context, employees, holidays);
             await context.SaveChangesAsync(cancellationToken);
         }
+
+        if (!await context.Set<ApplicationUser>().AnyAsync(cancellationToken))
+        {
+            var employees = await context.Set<Employee>().ToListAsync(cancellationToken);
+            context.Set<ApplicationUser>().AddRange(CreateUsers(employees, options.UserPassword));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    // One login per employee, all with the same password. The seeding hooks only get the
+    // DbContext, not Identity's UserManager, so this does what UserManager.CreateAsync does.
+    private static List<ApplicationUser> CreateUsers(List<Employee> employees, string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException(
+                "The password for the demo logins is missing. Set the environment variable " +
+                "Seed__DevelopmentPassword (see database/README.md).");
+        }
+
+        var normalizer = new UpperInvariantLookupNormalizer();
+        var passwordHasher = new PasswordHasher<ApplicationUser>();
+
+        return employees
+            .Select(employee =>
+            {
+                var user = ApplicationUser.ForEmployee(employee);
+                user.NormalizedUserName = normalizer.NormalizeName(user.UserName);
+                user.NormalizedEmail = normalizer.NormalizeEmail(user.Email);
+                user.SecurityStamp = Guid.NewGuid().ToString("N");
+                user.LockoutEnabled = true;
+                user.PasswordHash = passwordHasher.HashPassword(user, password);
+                return user;
+            })
+            .ToList();
     }
 
     private static List<Employee> CreateEmployees()

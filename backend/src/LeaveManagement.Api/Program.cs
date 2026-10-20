@@ -5,6 +5,7 @@ using LeaveManagement.Api.Common;
 using LeaveManagement.Api.Employees;
 using LeaveManagement.Infrastructure;
 using LeaveManagement.Infrastructure.Persistence;
+using LeaveManagement.Infrastructure.Persistence.Seeding;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +15,11 @@ var connectionString = builder.Configuration.GetConnectionString("LeaveManagemen
         "Connection string 'LeaveManagement' is missing. Set the environment variable " +
         "ConnectionStrings__LeaveManagement (see database/README.md).");
 
-builder.Services.AddInfrastructure(connectionString, seedDevelopmentData: builder.Environment.IsDevelopment());
+var developmentSeed = builder.Environment.IsDevelopment()
+    ? new DevelopmentSeedOptions(builder.Configuration["Seed:DevelopmentPassword"])
+    : null;
+
+builder.Services.AddInfrastructure(connectionString, developmentSeed);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddValidatorsFromAssemblyContaining<Program>(includeInternalTypes: true);
 builder.Services.AddAuthFeature(builder.Configuration);
