@@ -9,12 +9,13 @@ namespace LeaveManagement.Api.Tests.Employees;
 public sealed class GetEmployeesTests(ApiTestFixture fixture) : ApiTestBase(fixture)
 {
     [Fact]
-    public async Task GetEmployees_WithEmployees_ReturnsThemSortedByLastName()
+    public async Task GetEmployees_SignedIn_ReturnsEmployeesSortedByLastName()
     {
         await ArrangeAsync(dbContext => dbContext.Employees.AddRange(
             Employee.Create("Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), EmployeeRole.Employee),
-            Employee.Create("Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15), EmployeeRole.Employee),
-            Employee.Create("Anna", "Bauer", "anna.bauer@example.at", new DateOnly(2022, 4, 1), EmployeeRole.Employee)));
+            Employee.Create("Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15), EmployeeRole.Employee)));
+        await SignInAsync(
+            Employee.Create("Anna", "Bauer", "anna.bauer@example.at", new DateOnly(2022, 4, 1), EmployeeRole.Employee));
 
         var response = await Client.GetAsync("/api/employees", CancellationToken);
 
@@ -27,13 +28,10 @@ public sealed class GetEmployeesTests(ApiTestFixture fixture) : ApiTestBase(fixt
     }
 
     [Fact]
-    public async Task GetEmployees_NoEmployees_ReturnsEmptyList()
+    public async Task GetEmployees_WithoutToken_ReturnsUnauthorized()
     {
         var response = await Client.GetAsync("/api/employees", CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var employees = await response.Content.ReadFromJsonAsync<List<EmployeeListItemResponse>>(CancellationToken);
-        Assert.NotNull(employees);
-        Assert.Empty(employees);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

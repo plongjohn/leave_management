@@ -10,7 +10,7 @@ internal static class AuthEndpoints
         services.AddIdentityStore();
         services.AddJwtAuthentication(configuration);
         services.AddLoginRateLimiting(configuration);
-        services.AddAuthorization();
+        services.AddAuthorizationPolicies();
         services.AddScoped<AuthService>();
         services.AddScoped<RefreshTokenService>();
         services.AddHostedService<RefreshTokenCleanupService>();
@@ -31,10 +31,10 @@ internal static class AuthEndpoints
 
         auth.MapPost("/logout", LogoutAsync).WithName("Logout");
 
+        // Protected by the fallback policy like every other endpoint.
         endpoints.MapGet("/api/me", GetCurrentUserAsync)
             .WithName("GetCurrentUser")
-            .WithTags("Auth")
-            .RequireAuthorization();
+            .WithTags("Auth");
 
         return endpoints;
     }
