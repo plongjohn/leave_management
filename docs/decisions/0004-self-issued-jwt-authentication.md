@@ -81,16 +81,20 @@ recommendations and be explainable.
   one of them succeed; the other gets `401` without revoking the family.
 - Sent only as the cookie `refresh_token`: `HttpOnly`, `Secure`, `SameSite=Strict`,
   `Path=/api/auth`.
+- **"Stay signed in"** (`rememberMe` at login): with it, the cookie expires with the token;
+  without it, it is a session cookie that the browser drops when it is closed. The choice is
+  stored with the token and kept on every rotation. The token expires on the server after its
+  lifetime either way.
 - Logout revokes the current refresh token and deletes the cookie.
 - A background service deletes expired refresh tokens every six hours.
 
 ### Endpoints
 
 ```text
-POST /api/auth/login     email + password → access token (body) + refresh cookie
-POST /api/auth/refresh   refresh cookie   → new access token + new refresh cookie
-POST /api/auth/logout    refresh cookie   → revokes it, deletes the cookie
-GET  /api/me             access token     → the signed-in employee
+POST /api/auth/login     email, password, rememberMe → access token (body) + refresh cookie
+POST /api/auth/refresh   refresh cookie              → new access token + new refresh cookie
+POST /api/auth/logout    refresh cookie              → revokes it, deletes the cookie
+GET  /api/me             access token                → the signed-in employee
 ```
 
 Failed logins return the same response (`401`, code `auth.login_failed`) whether the email

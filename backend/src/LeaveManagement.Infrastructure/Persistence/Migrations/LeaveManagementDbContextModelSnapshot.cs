@@ -1299,6 +1299,10 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("family_id");
 
+                    b.Property<bool>("IsPersistent")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_persistent");
+
                     b.Property<Guid?>("ReplacedById")
                         .HasColumnType("uuid")
                         .HasColumnName("replaced_by_id");

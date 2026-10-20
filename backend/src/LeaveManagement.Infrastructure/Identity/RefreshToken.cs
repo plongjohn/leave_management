@@ -7,12 +7,20 @@ namespace LeaveManagement.Infrastructure.Identity;
 public sealed class RefreshToken
 {
     // Used by EF Core when materializing; parameter names match the property names.
-    private RefreshToken(Guid id, Guid userId, Guid familyId, byte[] tokenHash, DateTimeOffset createdAt, DateTimeOffset expiresAt)
+    private RefreshToken(
+        Guid id,
+        Guid userId,
+        Guid familyId,
+        byte[] tokenHash,
+        bool isPersistent,
+        DateTimeOffset createdAt,
+        DateTimeOffset expiresAt)
     {
         Id = id;
         UserId = userId;
         FamilyId = familyId;
         TokenHash = tokenHash;
+        IsPersistent = isPersistent;
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
     }
@@ -24,6 +32,12 @@ public sealed class RefreshToken
     public Guid FamilyId { get; private set; }
 
     public byte[] TokenHash { get; private set; }
+
+    /// <summary>
+    /// "Stay signed in": the cookie outlives the browser session. Kept for the whole family, so
+    /// rotation does not change the choice made at login.
+    /// </summary>
+    public bool IsPersistent { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -39,12 +53,19 @@ public sealed class RefreshToken
 
     public bool IsRevoked => RevokedAt is not null;
 
-    public static RefreshToken Create(Guid userId, Guid familyId, byte[] tokenHash, DateTimeOffset now, TimeSpan lifetime)
+    public static RefreshToken Create(
+        Guid userId,
+        Guid familyId,
+        byte[] tokenHash,
+        bool isPersistent,
+        DateTimeOffset now,
+        TimeSpan lifetime)
     {
         ArgumentNullException.ThrowIfNull(tokenHash);
 
         var createdAt = now.ToUniversalTime();
-        return new RefreshToken(Guid.CreateVersion7(), userId, familyId, tokenHash, createdAt, createdAt + lifetime);
+        return new RefreshToken(
+            Guid.CreateVersion7(), userId, familyId, tokenHash, isPersistent, createdAt, createdAt + lifetime);
     }
 
     public bool IsExpired(DateTimeOffset now) => ExpiresAt <= now;

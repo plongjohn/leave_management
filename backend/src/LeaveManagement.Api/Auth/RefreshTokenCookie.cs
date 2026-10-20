@@ -11,8 +11,10 @@ internal static class RefreshTokenCookie
 
     public static string? Read(HttpRequest request) => request.Cookies[Name];
 
+    // Without "stay signed in" a session cookie (no expiry): the browser drops it when it closes.
+    // The token itself still expires on the server after its normal lifetime.
     public static void Append(HttpResponse response, IssuedRefreshToken token) =>
-        response.Cookies.Append(Name, token.Value, CreateOptions(token.ExpiresAt));
+        response.Cookies.Append(Name, token.Value, CreateOptions(token.IsPersistent ? token.ExpiresAt : null));
 
     public static void Delete(HttpResponse response) => response.Cookies.Delete(Name, CreateOptions(expiresAt: null));
 

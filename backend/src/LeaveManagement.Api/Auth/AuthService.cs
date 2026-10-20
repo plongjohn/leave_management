@@ -35,7 +35,7 @@ internal sealed partial class AuthService(
             return null;
         }
 
-        var refreshToken = await refreshTokens.IssueAsync(user.Id, cancellationToken);
+        var refreshToken = await refreshTokens.IssueAsync(user.Id, request.RememberMe, cancellationToken);
         var accessToken = await IssueAccessTokenAsync(user.Id, user.EmployeeId, cancellationToken);
         return new SignInTokens(accessToken, refreshToken);
     }

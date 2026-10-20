@@ -19,9 +19,10 @@ internal sealed partial class RefreshTokenService(
     private const int TokenBytes = 32;
 
     /// <summary>Starts a new token family, i.e. a new session.</summary>
-    public async Task<IssuedRefreshToken> IssueAsync(Guid userId, CancellationToken cancellationToken)
+    /// <param name="isPersistent">"Stay signed in": the cookie survives closing the browser.</param>
+    public async Task<IssuedRefreshToken> IssueAsync(Guid userId, bool isPersistent, CancellationToken cancellationToken)
     {
-        var issued = Add(userId, familyId: Guid.CreateVersion7(), out _);
+        var issued = Add(userId, familyId: Guid.CreateVersion7(), isPersistent, out _);
         await dbContext.SaveChangesAsync(cancellationToken);
         return issued;
     }
@@ -47,7 +48,7 @@ internal sealed partial class RefreshTokenService(
             return null;
         }
 
-        var issued = Add(current.UserId, current.FamilyId, out var next);
+        var issued = Add(current.UserId, current.FamilyId, current.IsPersistent, out var next);
         current.Revoke(now, next.Id);
 
         try
@@ -90,12 +91,18 @@ internal sealed partial class RefreshTokenService(
     /// <summary>Only the hash is stored, so a database leak does not expose usable tokens.</summary>
     public static byte[] Hash(string value) => SHA256.HashData(Encoding.UTF8.GetBytes(value));
 
-    private IssuedRefreshToken Add(Guid userId, Guid familyId, out RefreshToken token)
+    private IssuedRefreshToken Add(Guid userId, Guid familyId, bool isPersistent, out RefreshToken token)
     {
         var value = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(TokenBytes));
-        token = RefreshToken.Create(userId, familyId, Hash(value), timeProvider.GetUtcNow(), options.Value.RefreshTokenLifetime);
+        token = RefreshToken.Create(
+            userId,
+            familyId,
+            Hash(value),
+            isPersistent,
+            timeProvider.GetUtcNow(),
+            options.Value.RefreshTokenLifetime);
         dbContext.RefreshTokens.Add(token);
-        return new IssuedRefreshToken(value, token.ExpiresAt);
+        return new IssuedRefreshToken(value, token.ExpiresAt, isPersistent);
     }
 
     private async Task<RefreshToken?> FindAsync(string value, CancellationToken cancellationToken)

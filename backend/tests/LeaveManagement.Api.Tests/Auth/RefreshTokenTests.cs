@@ -53,7 +53,41 @@ public sealed class RefreshTokenTests : ApiTestBase
         Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Login_WithoutRememberMe_SetsSessionCookie()
+    {
+        await CreateUserAsync(_employee);
+
+        var response = await LoginAsync(rememberMe: false);
+
+        Assert.DoesNotContain("expires=", RefreshCookieHeader(response), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Login_WithRememberMe_SetsCookieWithExpiry()
+    {
+        await CreateUserAsync(_employee);
+
+        var response = await LoginAsync(rememberMe: true);
+
+        Assert.Contains("expires=", RefreshCookieHeader(response), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Refresh_AfterLogin_KeepsRememberMeChoice(bool rememberMe)
+    {
+        await CreateUserAsync(_employee);
+        var refreshToken = ReadRefreshToken(await LoginAsync(rememberMe));
+
+        var response = await RefreshAsync(refreshToken);
+
+        Assert.Equal(
+            rememberMe,
+            RefreshCookieHeader(response).Contains("expires=", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -152,6 +186,7 @@ public sealed class RefreshTokenTests : ApiTestBase
             user.Id,
             Guid.NewGuid(),
             RefreshTokenService.Hash(expiredToken),
+            true,
             DateTimeOffset.UtcNow.AddDays(-8),
             TimeSpan.FromDays(7))));
 
@@ -207,6 +242,7 @@ public sealed class RefreshTokenTests : ApiTestBase
             user.Id,
             Guid.NewGuid(),
             RefreshTokenService.Hash("expired-token-value"),
+            true,
             DateTimeOffset.UtcNow.AddDays(-8),
             TimeSpan.FromDays(7))));
 
@@ -218,6 +254,18 @@ public sealed class RefreshTokenTests : ApiTestBase
         var remaining = await dbContext.RefreshTokens.SingleAsync(CancellationToken);
         Assert.Equal(RefreshTokenService.Hash(activeToken), remaining.TokenHash);
     }
+
+    private async Task<HttpResponseMessage> LoginAsync(bool rememberMe)
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest(_employee.Email, Password, rememberMe), CancellationToken);
+        response.EnsureSuccessStatusCode();
+        return response;
+    }
+
+    private static string RefreshCookieHeader(HttpResponseMessage response) =>
+        response.Headers.GetValues("Set-Cookie")
+            .Single(header => header.StartsWith($"{RefreshTokenCookie.Name}=", StringComparison.Ordinal));
 
     private async Task<string> LoginAndGetRefreshTokenAsync()
     {
