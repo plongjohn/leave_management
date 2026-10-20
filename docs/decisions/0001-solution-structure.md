@@ -2,6 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-18
+- **Updated:** 2026-10-20 – placement of the authentication code (phase 5), test database per
+  ADR 0005
 
 ## Context
 
@@ -23,12 +25,12 @@ The backend consists of three projects plus their test projects:
 backend/src/
   LeaveManagement.Domain/          entities, business rules, working-day calculation
   LeaveManagement.Infrastructure/  EF Core DbContext, entity configurations, migrations,
-                                   identity and token services
+                                   Identity user store and refresh token storage
   LeaveManagement.Api/             endpoints, request/response DTOs, validation,
-                                   authentication setup, ProblemDetails
+                                   authentication (token issuing, rotation), ProblemDetails
 backend/tests/
   LeaveManagement.Domain.Tests/    unit tests of business rules
-  LeaveManagement.Api.Tests/       integration tests (WebApplicationFactory + Testcontainers)
+  LeaveManagement.Api.Tests/       integration tests (WebApplicationFactory + PostgreSQL, ADR 0005)
 ```
 
 Dependencies point inwards only:

@@ -5,8 +5,8 @@
 Leave and absence management for a small company: employees request leave, managers approve
 or reject it, and HR keeps track of entitlements and public holidays.
 
-> Work in progress – currently a walking skeleton: the employee list runs end to end from
-> PostgreSQL through the API to the Angular frontend.
+> Work in progress – the leave domain and the authentication (JWT with rotating refresh
+> tokens) are implemented in the backend; the login page in the frontend follows.
 
 ## Tech Stack
 
@@ -38,8 +38,8 @@ docs/       Coding guidelines and architecture decision records
 ### 1. Database
 
 Follow [database/README.md](database/README.md): install PostgreSQL, run the setup script,
-set the environment variable `ConnectionStrings__LeaveManagement` and apply the migrations.
-No password is stored in the repository.
+set the environment variables for the connection string, the JWT signing key and the demo
+password, and apply the migrations. No password or key is stored in the repository.
 
 ### 2. Backend
 
@@ -48,8 +48,11 @@ cd backend
 dotnet run --project src/LeaveManagement.Api --launch-profile http
 ```
 
-The API runs on <http://localhost:5135>. In the Development environment it fills an empty
-database with demo employees and offers an API reference at <http://localhost:5135/scalar>.
+The API runs on <http://localhost:5135> and offers an API reference at
+<http://localhost:5135/scalar> in the Development environment. All endpoints except login need
+an access token: call `POST /api/auth/login` with one of the
+[demo logins](database/README.md#demo-logins) and paste the `accessToken` into Scalar's
+bearer authentication.
 
 ### 3. Frontend
 

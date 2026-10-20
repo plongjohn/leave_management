@@ -55,6 +55,10 @@ industries. The domain has to stay testable without a database (coding guideline
 | Sick leave | none, approved when reported; may lie in the past | no | – |
 | Special leave | manager | no | per occasion (`SpecialLeavePolicy`) |
 
+"Manager" means the employee's own manager. Requests of employees without a manager (e.g. the
+managing director) are decided by HR; HR cannot decide instead of an existing manager, and
+nobody decides on their own request (added 2026-10-20, phase 5).
+
 Special leave (Dienstverhinderung, § 8 Abs 3 AngG) needs a reason. The maximum days per occasion
 are typical collective agreement values and kept in code for the MVP:
 
@@ -97,8 +101,6 @@ The working year for care leave starts on the anniversary of the entry date.
 - **Sick leave during approved vacation** (§ 5 UrlG: more than three calendar days do not count
   as leave) – planned for phase 6 as an HR action that returns the vacation days. Until then the
   overlap rule applies to all types. A skipped test marks the gap.
-- **Requests of employees without a manager** cannot be decided yet; HR takes over once roles
-  exist (phase 5). A skipped test marks the gap.
 - Part-time and other working-week models, pro-rata entitlements in the entry year and
   automatic sixth week are not supported; HR adjusts the entitlement manually.
 
