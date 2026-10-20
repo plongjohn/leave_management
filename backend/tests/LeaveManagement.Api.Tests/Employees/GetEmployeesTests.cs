@@ -12,9 +12,9 @@ public sealed class GetEmployeesTests(ApiTestFixture fixture) : ApiTestBase(fixt
     public async Task GetEmployees_WithEmployees_ReturnsThemSortedByLastName()
     {
         await ArrangeAsync(dbContext => dbContext.Employees.AddRange(
-            Employee.Create("Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1)),
-            Employee.Create("Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15)),
-            Employee.Create("Anna", "Bauer", "anna.bauer@example.at", new DateOnly(2022, 4, 1))));
+            Employee.Create("Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), EmployeeRole.Employee),
+            Employee.Create("Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15), EmployeeRole.Employee),
+            Employee.Create("Anna", "Bauer", "anna.bauer@example.at", new DateOnly(2022, 4, 1), EmployeeRole.Employee)));
 
         var response = await Client.GetAsync("/api/employees", CancellationToken);
 

@@ -50,17 +50,27 @@ internal static class DevelopmentDataSeeder
 
     private static List<Employee> CreateEmployees()
     {
-        var hrLead = Employee.Create("Sabine", "Huber", "sabine.huber@example.at", new DateOnly(2015, 3, 1));
-        var developmentLead = Employee.Create("Markus", "Gruber", "markus.gruber@example.at", new DateOnly(2017, 9, 1));
+        // The managing director has no manager, so HR decides on her requests.
+        var director = Employee.Create(
+            "Andrea", "Steiner", "andrea.steiner@example.at", new DateOnly(2012, 1, 2), EmployeeRole.Manager);
+        var hrLead = Employee.Create(
+            "Sabine", "Huber", "sabine.huber@example.at", new DateOnly(2015, 3, 1), EmployeeRole.Hr, director.Id);
+        var developmentLead = Employee.Create(
+            "Markus", "Gruber", "markus.gruber@example.at", new DateOnly(2017, 9, 1), EmployeeRole.Manager, director.Id);
 
         return
         [
+            director,
             hrLead,
             developmentLead,
-            Employee.Create("Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), developmentLead.Id),
-            Employee.Create("Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15), developmentLead.Id),
-            Employee.Create("Julia", "Pichler", "julia.pichler@example.at", new DateOnly(2023, 1, 9), developmentLead.Id),
-            Employee.Create("Stefan", "Moser", "stefan.moser@example.at", new DateOnly(2019, 11, 4), hrLead.Id),
+            Employee.Create(
+                "Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), EmployeeRole.Employee, developmentLead.Id),
+            Employee.Create(
+                "Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15), EmployeeRole.Employee, developmentLead.Id),
+            Employee.Create(
+                "Julia", "Pichler", "julia.pichler@example.at", new DateOnly(2023, 1, 9), EmployeeRole.Employee, developmentLead.Id),
+            Employee.Create(
+                "Stefan", "Moser", "stefan.moser@example.at", new DateOnly(2019, 11, 4), EmployeeRole.Employee, hrLead.Id),
         ];
     }
 
@@ -80,6 +90,7 @@ internal static class DevelopmentDataSeeder
         context.Set<LeaveEntitlement>().AddRange(entitlements);
 
         var employeesByEmail = employees.ToDictionary(employee => employee.Email);
+        var andrea = employeesByEmail["andrea.steiner@example.at"];
         var markus = employeesByEmail["markus.gruber@example.at"];
         var lena = employeesByEmail["lena.wagner@example.at"];
         var thomas = employeesByEmail["thomas.bauer@example.at"];
@@ -108,6 +119,7 @@ internal static class DevelopmentDataSeeder
         Submit(julia, nextMonday.AddDays(21), nextMonday.AddDays(23), LeaveType.Vacation).Reject(markus, julia, now);
         Submit(julia, nextMonday.AddDays(7), nextMonday.AddDays(8), LeaveType.SpecialLeave, SpecialLeaveReason.Relocation);
         Submit(stefan, nextMonday.AddDays(-14), nextMonday.AddDays(-12), LeaveType.SickLeave);
+        Submit(andrea, nextMonday.AddDays(42), nextMonday.AddDays(46), LeaveType.Vacation);
 
         context.Set<LeaveRequest>().AddRange(requests);
     }

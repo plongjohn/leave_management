@@ -16,6 +16,7 @@ internal sealed class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(employee => employee.FirstName).HasMaxLength(Employee.NameMaxLength);
         builder.Property(employee => employee.LastName).HasMaxLength(Employee.NameMaxLength);
         builder.Property(employee => employee.Email).HasMaxLength(Employee.EmailMaxLength);
+        builder.Property(employee => employee.Role).HasConversion<string>().HasMaxLength(ColumnLengths.Enum);
 
         // Emails are stored lower-case by the domain, so a plain unique index is case-insensitive.
         builder.HasIndex(employee => employee.Email).IsUnique();

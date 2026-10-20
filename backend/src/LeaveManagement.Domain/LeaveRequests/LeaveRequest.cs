@@ -224,7 +224,8 @@ public sealed class LeaveRequest
         return trimmed;
     }
 
-    // Requests of employees without a manager cannot be decided yet; HR takes over in phase 5.
+    // The own manager decides. HR decides only for employees without a manager (e.g. the
+    // managing director), so every request has a responsible party and HR cannot bypass a manager.
     private void EnsureCanBeDecidedBy(Employee approver, Employee requester)
     {
         ArgumentNullException.ThrowIfNull(approver);
@@ -245,9 +246,13 @@ public sealed class LeaveRequest
             throw LeaveRequestErrors.OwnRequestViolation();
         }
 
-        if (requester.ManagerId != approver.Id)
+        var isResponsible = requester.ManagerId is { } managerId
+            ? approver.Id == managerId
+            : approver.Role == EmployeeRole.Hr;
+
+        if (!isResponsible)
         {
-            throw LeaveRequestErrors.NotResponsibleManagerViolation();
+            throw LeaveRequestErrors.NotResponsibleApproverViolation();
         }
     }
 

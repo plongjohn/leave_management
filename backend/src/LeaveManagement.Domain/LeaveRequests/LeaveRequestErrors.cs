@@ -16,7 +16,7 @@ public static class LeaveRequestErrors
     public const string SpecialLeaveLimitExceeded = "leave_request.special_leave_limit_exceeded";
     public const string NotPending = "leave_request.not_pending";
     public const string OwnRequest = "leave_request.own_request";
-    public const string NotResponsibleManager = "leave_request.not_responsible_manager";
+    public const string NotResponsibleApprover = "leave_request.not_responsible_approver";
     public const string AlreadyStarted = "leave_request.already_started";
     public const string NotCancellable = "leave_request.not_cancellable";
 
@@ -58,8 +58,10 @@ public static class LeaveRequestErrors
     internal static BusinessRuleViolationException OwnRequestViolation() =>
         new(OwnRequest, "Nobody may decide on their own request.");
 
-    internal static BusinessRuleViolationException NotResponsibleManagerViolation() =>
-        new(NotResponsibleManager, "Only the employee's own manager may decide on the request.");
+    internal static BusinessRuleViolationException NotResponsibleApproverViolation() =>
+        new(
+            NotResponsibleApprover,
+            "Only the employee's own manager may decide on the request; HR decides for employees without a manager.");
 
     internal static BusinessRuleViolationException AlreadyStartedViolation() =>
         new(AlreadyStarted, "Approved leave can only be cancelled before it starts.");

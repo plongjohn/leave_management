@@ -8,13 +8,21 @@ public sealed class Employee
     public const int EmailMaxLength = 254;
 
     // Used by EF Core when materializing; parameter names match the property names.
-    private Employee(Guid id, string firstName, string lastName, string email, DateOnly entryDate, Guid? managerId)
+    private Employee(
+        Guid id,
+        string firstName,
+        string lastName,
+        string email,
+        DateOnly entryDate,
+        EmployeeRole role,
+        Guid? managerId)
     {
         Id = id;
         FirstName = firstName;
         LastName = lastName;
         Email = email;
         EntryDate = entryDate;
+        Role = role;
         ManagerId = managerId;
     }
 
@@ -28,16 +36,30 @@ public sealed class Employee
 
     public DateOnly EntryDate { get; private set; }
 
+    public EmployeeRole Role { get; private set; }
+
     public Guid? ManagerId { get; private set; }
 
-    public static Employee Create(string firstName, string lastName, string email, DateOnly entryDate, Guid? managerId = null)
+    public static Employee Create(
+        string firstName,
+        string lastName,
+        string email,
+        DateOnly entryDate,
+        EmployeeRole role,
+        Guid? managerId = null)
     {
+        if (!Enum.IsDefined(role))
+        {
+            throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown role.");
+        }
+
         return new Employee(
             Guid.CreateVersion7(),
             RequireText(firstName, NameMaxLength, nameof(firstName)),
             RequireText(lastName, NameMaxLength, nameof(lastName)),
             RequireEmail(email),
             entryDate,
+            role,
             managerId);
     }
 

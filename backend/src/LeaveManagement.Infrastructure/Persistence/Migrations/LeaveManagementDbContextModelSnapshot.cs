@@ -54,6 +54,12 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("manager_id");
 
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("role");
+
                     b.HasKey("Id")
                         .HasName("pk_employees");
 

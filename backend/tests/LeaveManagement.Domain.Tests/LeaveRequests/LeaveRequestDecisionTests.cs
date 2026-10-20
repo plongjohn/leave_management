@@ -42,7 +42,7 @@ public sealed class LeaveRequestDecisionTests
     public void Approve_ByOtherEmployee_Throws()
     {
         AssertRule.Violated(
-            LeaveRequestErrors.NotResponsibleManager,
+            LeaveRequestErrors.NotResponsibleApprover,
             () => _request.Approve(TestEmployees.Colleague(), _employee, TestRequests.Now));
     }
 
@@ -73,9 +73,57 @@ public sealed class LeaveRequestDecisionTests
             () => _request.Approve(_manager, TestEmployees.Colleague(), TestRequests.Now));
     }
 
-    [Fact(Skip = "Phase 5: HR decides on requests of employees without a manager (needs roles).")]
+    [Fact]
     public void Approve_RequesterWithoutManagerByHr_SetsApproved()
     {
+        var hr = TestEmployees.Hr();
+        var director = TestEmployees.WithoutManager();
+        var request = TestRequests.Submit(director, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12));
+
+        request.Approve(hr, director, TestRequests.Now);
+
+        Assert.Equal(LeaveRequestStatus.Approved, request.Status);
+        Assert.Equal(hr.Id, request.DecidedById);
+    }
+
+    [Fact]
+    public void Approve_RequesterWithoutManagerByNonHr_Throws()
+    {
+        var director = TestEmployees.WithoutManager();
+        var request = TestRequests.Submit(director, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12));
+
+        AssertRule.Violated(
+            LeaveRequestErrors.NotResponsibleApprover,
+            () => request.Approve(_manager, director, TestRequests.Now));
+    }
+
+    [Fact]
+    public void Approve_RequesterWithManagerByHr_Throws()
+    {
+        AssertRule.Violated(
+            LeaveRequestErrors.NotResponsibleApprover,
+            () => _request.Approve(TestEmployees.Hr(), _employee, TestRequests.Now));
+    }
+
+    [Fact]
+    public void Approve_OwnRequestByHrWithoutManager_Throws()
+    {
+        var hr = TestEmployees.WithoutManager(EmployeeRole.Hr);
+        var request = TestRequests.Submit(hr, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12));
+
+        AssertRule.Violated(LeaveRequestErrors.OwnRequest, () => request.Approve(hr, hr, TestRequests.Now));
+    }
+
+    [Fact]
+    public void Reject_RequesterWithoutManagerByHr_SetsRejected()
+    {
+        var hr = TestEmployees.Hr();
+        var director = TestEmployees.WithoutManager();
+        var request = TestRequests.Submit(director, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12));
+
+        request.Reject(hr, director, TestRequests.Now);
+
+        Assert.Equal(LeaveRequestStatus.Rejected, request.Status);
     }
 
     [Fact]
@@ -92,7 +140,7 @@ public sealed class LeaveRequestDecisionTests
     public void Reject_ByOtherEmployee_Throws()
     {
         AssertRule.Violated(
-            LeaveRequestErrors.NotResponsibleManager,
+            LeaveRequestErrors.NotResponsibleApprover,
             () => _request.Reject(TestEmployees.Colleague(), _employee, TestRequests.Now));
     }
 

@@ -22,8 +22,8 @@ public sealed class LeaveRequestPersistenceTests : ApiTestBase
     public LeaveRequestPersistenceTests(ApiTestFixture fixture)
         : base(fixture)
     {
-        _manager = Employee.Create("Markus", "Gruber", "markus.gruber@example.at", new DateOnly(2017, 9, 1));
-        _employee = Employee.Create("Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), _manager.Id);
+        _manager = Employee.Create("Markus", "Gruber", "markus.gruber@example.at", new DateOnly(2017, 9, 1), EmployeeRole.Manager);
+        _employee = Employee.Create("Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), EmployeeRole.Employee, _manager.Id);
     }
 
     [Fact]
