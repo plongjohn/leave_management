@@ -5,8 +5,8 @@
 Leave and absence management for a small company: employees request leave, managers approve
 or reject it, and HR keeps track of entitlements and public holidays.
 
-> Work in progress – the leave domain and the authentication (JWT with rotating refresh
-> tokens) are implemented in the backend; the login page in the frontend follows.
+> Work in progress – the leave domain and the sign-in (JWT with rotating refresh tokens,
+> login page) are implemented; the leave request screens follow.
 
 ## Tech Stack
 
@@ -62,7 +62,8 @@ npm install
 npm start
 ```
 
-Open <http://localhost:4200>. Requests to `/api` are proxied to the backend.
+Open <http://localhost:4200> and sign in with one of the
+[demo logins](database/README.md#demo-logins). Requests to `/api` are proxied to the backend.
 
 ## Tests
 

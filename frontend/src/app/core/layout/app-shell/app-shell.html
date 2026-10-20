@@ -1,0 +1,24 @@
+<mat-toolbar class="toolbar">
+  <span class="brand">
+    <span class="brand-mark" aria-hidden="true"><mat-icon>event_available</mat-icon></span>
+    <span>{{ texts.appName }}</span>
+  </span>
+
+  <span class="spacer"></span>
+
+  @if (auth.currentUser(); as user) {
+    <span class="user">
+      <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
+      <span class="user-role">{{ texts.roles[user.role] }}</span>
+    </span>
+  }
+
+  <button mat-button type="button" (click)="signOut()">
+    <mat-icon aria-hidden="true">logout</mat-icon>
+    {{ texts.signOut }}
+  </button>
+</mat-toolbar>
+
+<main class="content">
+  <router-outlet />
+</main>
