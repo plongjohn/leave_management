@@ -1213,6 +1213,51 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("leave_requests", (string)null);
                 });
 
+            modelBuilder.Entity("LeaveManagement.Domain.LeaveRequests.MedicalCertificate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<Guid>("LeaveRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("leave_request_id");
+
+                    b.Property<int>("SizeInBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("size_in_bytes");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_medical_certificates");
+
+                    b.HasIndex("LeaveRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_medical_certificates_leave_request_id");
+
+                    b.ToTable("medical_certificates", (string)null);
+                });
+
             modelBuilder.Entity("LeaveManagement.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1516,6 +1561,16 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Days");
+                });
+
+            modelBuilder.Entity("LeaveManagement.Domain.LeaveRequests.MedicalCertificate", b =>
+                {
+                    b.HasOne("LeaveManagement.Domain.LeaveRequests.LeaveRequest", null)
+                        .WithOne()
+                        .HasForeignKey("LeaveManagement.Domain.LeaveRequests.MedicalCertificate", "LeaveRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_medical_certificates_leave_requests_leave_request_id");
                 });
 
             modelBuilder.Entity("LeaveManagement.Infrastructure.Identity.ApplicationUser", b =>

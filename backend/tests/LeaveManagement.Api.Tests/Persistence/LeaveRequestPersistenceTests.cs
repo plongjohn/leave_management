@@ -69,37 +69,64 @@ public sealed class LeaveRequestPersistenceTests : ApiTestBase
     [Fact]
     public async Task SaveChanges_SickLeaveWithCertificate_RoundTripsCertificateFlag()
     {
-        await using var scope = CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>();
-        var sickLeave = LeaveRequest.Submit(
-            _employee,
-            new LeaveRequestDraft(
-                new DateRange(new DateOnly(2026, 2, 23), new DateOnly(2026, 2, 27)),
-                LeaveType.SickLeave,
-                HasMedicalCertificate: true),
-            new SubmissionContext(new WorkingDayCalendar([]), [], [], Today, Now));
-        dbContext.Employees.AddRange(_manager, _employee);
-        dbContext.LeaveRequests.Add(sickLeave);
-        await dbContext.SaveChangesAsync(CancellationToken);
+        var sickLeave = SickLeaveWithCertificate();
+        await ArrangeAsync(dbContext =>
+        {
+            dbContext.Employees.AddRange(_manager, _employee);
+            dbContext.LeaveRequests.Add(sickLeave);
+        });
 
-        await using var readScope = CreateScope();
-        var loaded = await readScope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>()
+        await using var scope = CreateScope();
+        var loaded = await scope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>()
             .LeaveRequests.SingleAsync(entry => entry.Id == sickLeave.Id, CancellationToken);
 
         Assert.True(loaded.HasMedicalCertificate);
     }
 
     [Fact]
+    public async Task SaveChanges_MedicalCertificate_RoundTripsFile()
+    {
+        var sickLeave = SickLeaveWithCertificate();
+        byte[] content = [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31];
+        var certificate = MedicalCertificate.Create(sickLeave, "attest.pdf", "application/pdf", content, Now);
+        await ArrangeAsync(dbContext =>
+        {
+            dbContext.Employees.AddRange(_manager, _employee);
+            dbContext.LeaveRequests.Add(sickLeave);
+            dbContext.MedicalCertificates.Add(certificate);
+        });
+
+        await using var scope = CreateScope();
+        var loaded = await scope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>()
+            .MedicalCertificates.SingleAsync(entry => entry.LeaveRequestId == sickLeave.Id, CancellationToken);
+
+        Assert.Equal("attest.pdf", loaded.FileName);
+        Assert.Equal("application/pdf", loaded.ContentType);
+        Assert.Equal(content.Length, loaded.SizeInBytes);
+        Assert.Equal(content, loaded.Content);
+        Assert.Equal(Now, loaded.UploadedAt);
+    }
+
+    [Fact]
+    public async Task SaveChanges_SecondCertificateForSameSickLeave_IsRejectedByDatabase()
+    {
+        var sickLeave = SickLeaveWithCertificate();
+        await ArrangeAsync(dbContext =>
+        {
+            dbContext.Employees.AddRange(_manager, _employee);
+            dbContext.LeaveRequests.Add(sickLeave);
+            dbContext.MedicalCertificates.Add(MedicalCertificate.Create(sickLeave, "a.pdf", "application/pdf", [1], Now));
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => ArrangeAsync(dbContext =>
+            dbContext.MedicalCertificates.Add(MedicalCertificate.Create(sickLeave, "b.pdf", "application/pdf", [2], Now))));
+    }
+
+    [Fact]
     public async Task SaveChanges_RevokedCertificate_RoundTripsRevocation()
     {
         var hr = Employee.Create("Sabine", "Huber", "sabine.huber@example.at", new DateOnly(2015, 3, 1), EmployeeRole.Hr);
-        var sickLeave = LeaveRequest.Submit(
-            _employee,
-            new LeaveRequestDraft(
-                new DateRange(new DateOnly(2026, 2, 23), new DateOnly(2026, 2, 27)),
-                LeaveType.SickLeave,
-                HasMedicalCertificate: true),
-            new SubmissionContext(new WorkingDayCalendar([]), [], [], Today, Now));
+        var sickLeave = SickLeaveWithCertificate();
         sickLeave.RevokeMedicalCertificate(hr, "Attest nicht lesbar", Now);
         await ArrangeAsync(dbContext =>
         {
@@ -148,6 +175,15 @@ public sealed class LeaveRequestPersistenceTests : ApiTestBase
         await Assert.ThrowsAsync<DbUpdateException>(() => ArrangeAsync(dbContext =>
             dbContext.LeaveEntitlements.Add(LeaveEntitlement.Create(_employee.Id, 2026, 5m))));
     }
+
+    private LeaveRequest SickLeaveWithCertificate() =>
+        LeaveRequest.Submit(
+            _employee,
+            new LeaveRequestDraft(
+                new DateRange(new DateOnly(2026, 2, 23), new DateOnly(2026, 2, 27)),
+                LeaveType.SickLeave,
+                HasMedicalCertificate: true),
+            new SubmissionContext(new WorkingDayCalendar([]), [], [], Today, Now));
 
     private async Task<LeaveRequest> SubmitAndSaveVacationAsync(DateOnly start, DateOnly end)
     {

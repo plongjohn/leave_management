@@ -21,6 +21,8 @@ public sealed class LeaveManagementDbContext(DbContextOptions<LeaveManagementDbC
 
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
+    public DbSet<MedicalCertificate> MedicalCertificates => Set<MedicalCertificate>();
+
     public DbSet<LeaveEntitlement> LeaveEntitlements => Set<LeaveEntitlement>();
 
     public DbSet<Holiday> Holidays => Set<Holiday>();
