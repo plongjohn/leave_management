@@ -21,6 +21,7 @@ var developmentSeed = builder.Environment.IsDevelopment()
 
 builder.Services.AddInfrastructure(connectionString, developmentSeed);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<CompanyClock>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>(includeInternalTypes: true);
 builder.Services.AddAuthFeature(builder.Configuration);
 builder.Services.AddEmployeeFeature();
