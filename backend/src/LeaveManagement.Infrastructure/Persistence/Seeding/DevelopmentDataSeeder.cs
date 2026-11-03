@@ -37,6 +37,17 @@ internal static class DevelopmentDataSeeder
             context.Set<ApplicationUser>().AddRange(CreateUsers(context.Set<Employee>().ToList(), options.UserPassword));
             context.SaveChanges();
         }
+
+        if (!context.Set<MedicalCertificate>().Any())
+        {
+            AddSickLeaveDuringVacation(
+                context,
+                context.Set<Employee>().ToList(),
+                context.Set<Holiday>().ToList(),
+                context.Set<LeaveEntitlement>().ToList(),
+                context.Set<LeaveRequest>().ToList());
+            context.SaveChanges();
+        }
     }
 
     public static async Task SeedAsync(DbContext context, DevelopmentSeedOptions options, CancellationToken cancellationToken)
@@ -59,6 +70,17 @@ internal static class DevelopmentDataSeeder
         {
             var employees = await context.Set<Employee>().ToListAsync(cancellationToken);
             context.Set<ApplicationUser>().AddRange(CreateUsers(employees, options.UserPassword));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await context.Set<MedicalCertificate>().AnyAsync(cancellationToken))
+        {
+            AddSickLeaveDuringVacation(
+                context,
+                await context.Set<Employee>().ToListAsync(cancellationToken),
+                await context.Set<Holiday>().ToListAsync(cancellationToken),
+                await context.Set<LeaveEntitlement>().ToListAsync(cancellationToken),
+                await context.Set<LeaveRequest>().ToListAsync(cancellationToken));
             await context.SaveChangesAsync(cancellationToken);
         }
     }
@@ -166,4 +188,80 @@ internal static class DevelopmentDataSeeder
 
         context.Set<LeaveRequest>().AddRange(requests);
     }
+
+    // Phase 6: two past vacations with sick leave and a certificate, one of them revoked by HR, so the
+    // returned days and the certificate review can be tried out. A part of its own, so databases seeded
+    // before phase 6 receive it, too.
+    private static void AddSickLeaveDuringVacation(
+        DbContext context,
+        List<Employee> employees,
+        List<Holiday> holidays,
+        List<LeaveEntitlement> entitlements,
+        List<LeaveRequest> existingRequests)
+    {
+        var now = TimeProvider.System.GetLocalNow();
+        var today = DateOnly.FromDateTime(now.DateTime);
+        var thisMonday = today.AddDays(-(((int)today.DayOfWeek + 6) % DaysPerWeek));
+        var calendar = new WorkingDayCalendar(holidays);
+
+        var employeesByEmail = employees.ToDictionary(employee => employee.Email);
+        var markus = employeesByEmail["markus.gruber@example.at"];
+        var sabine = employeesByEmail["sabine.huber@example.at"];
+        var thomas = employeesByEmail["thomas.bauer@example.at"];
+        var julia = employeesByEmail["julia.pichler@example.at"];
+
+        var requests = new List<LeaveRequest>();
+
+        // The vacations were requested two weeks before they started, so the start was not in the past.
+        LeaveRequest Submit(Employee employee, DateOnly start, DateOnly end, LeaveType type, DateOnly submittedOn, bool hasCertificate = false)
+        {
+            var submissionContext = new SubmissionContext(
+                calendar,
+                [.. existingRequests.Concat(requests).Where(request => request.EmployeeId == employee.Id)],
+                [.. entitlements.Where(entitlement => entitlement.EmployeeId == employee.Id)],
+                submittedOn,
+                now);
+            var request = LeaveRequest.Submit(
+                employee,
+                new LeaveRequestDraft(new DateRange(start, end), type, HasMedicalCertificate: hasCertificate),
+                submissionContext);
+            requests.Add(request);
+            return request;
+        }
+
+        // Thomas: two weeks of vacation eight weeks ago, sick from Tuesday to the following Monday.
+        var thomasStart = thisMonday.AddDays(-8 * DaysPerWeek);
+        Submit(thomas, thomasStart, thomasStart.AddDays(11), LeaveType.Vacation, thomasStart.AddDays(-14))
+            .Approve(markus, thomas, now);
+        var thomasSick = Submit(thomas, thomasStart.AddDays(1), thomasStart.AddDays(7), LeaveType.SickLeave, thomasStart.AddDays(1), hasCertificate: true);
+
+        // Julia: one week of vacation five weeks ago, sick Monday to Thursday; HR could not read the certificate.
+        var juliaStart = thisMonday.AddDays(-5 * DaysPerWeek);
+        Submit(julia, juliaStart, juliaStart.AddDays(4), LeaveType.Vacation, juliaStart.AddDays(-14))
+            .Approve(markus, julia, now);
+        var juliaSick = Submit(julia, juliaStart, juliaStart.AddDays(3), LeaveType.SickLeave, juliaStart, hasCertificate: true);
+        juliaSick.RevokeMedicalCertificate(sabine, "Attest nicht lesbar, bitte neu einreichen.", now);
+
+        context.Set<LeaveRequest>().AddRange(requests);
+        context.Set<MedicalCertificate>().AddRange(
+            MedicalCertificate.Create(thomasSick, "attest-thomas-bauer.pdf", "application/pdf", DemoCertificatePdf, now),
+            MedicalCertificate.Create(juliaSick, "attest-julia-pichler.pdf", "application/pdf", DemoCertificatePdf, now));
+    }
+
+    /// <summary>A one-page PDF that says "Demo-Attest", small enough to keep in code.</summary>
+    private static readonly byte[] DemoCertificatePdf =
+    [
+        .. """
+        %PDF-1.4
+        1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj
+        2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj
+        3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 300 120] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>> endobj
+        4 0 obj <</Length 49>> stream
+        BT /F1 18 Tf 40 55 Td (Demo-Attest) Tj ET
+        endstream endobj
+        5 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj
+        trailer <</Root 1 0 R>>
+        %%EOF
+        """u8,
+    ];
 }
