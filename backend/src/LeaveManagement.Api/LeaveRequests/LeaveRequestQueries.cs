@@ -78,6 +78,24 @@ internal sealed class LeaveRequestQueries(LeaveManagementDbContext dbContext, Co
             request.Version))];
     }
 
+    /// <summary>
+    /// The certificate file for the employee who reported the sick leave or for HR (health data,
+    /// GDPR Art. 9 – managers do not see it); <c>null</c> for everyone else.
+    /// </summary>
+    public async Task<CertificateFile?> GetMedicalCertificateAsync(
+        Guid requestId,
+        Guid employeeId,
+        bool isHr,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.MedicalCertificates
+            .AsNoTracking()
+            .Where(certificate => certificate.LeaveRequestId == requestId
+                && (isHr || dbContext.LeaveRequests.Any(request => request.Id == requestId && request.EmployeeId == employeeId)))
+            .Select(certificate => new CertificateFile(certificate.FileName, certificate.ContentType, certificate.Content))
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<LeaveBalanceResponse> GetMyBalanceAsync(Guid employeeId, CancellationToken cancellationToken)
     {
         var entitlements = await dbContext.LeaveEntitlements
@@ -151,3 +169,5 @@ internal sealed class LeaveRequestQueries(LeaveManagementDbContext dbContext, Co
     private static string? NameOf(Guid? employeeId, Dictionary<Guid, string> names) =>
         employeeId is { } id && names.TryGetValue(id, out var name) ? name : null;
 }
+
+internal sealed record CertificateFile(string FileName, string ContentType, byte[] Content);

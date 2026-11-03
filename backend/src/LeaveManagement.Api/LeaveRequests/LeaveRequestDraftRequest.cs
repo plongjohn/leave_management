@@ -24,8 +24,8 @@ public sealed record LeaveRequestDraftRequest(
 /// </summary>
 internal sealed class LeaveRequestDraftRequestValidator : AbstractValidator<LeaveRequestDraftRequest>
 {
-    // Limits the work for absurd input; no real absence lasts longer than a year.
-    private const int MaxCalendarDays = 366;
+    /// <summary>Limits the work for absurd input; no real absence lasts longer than a year.</summary>
+    internal const int MaxCalendarDays = 366;
 
     public LeaveRequestDraftRequestValidator()
     {

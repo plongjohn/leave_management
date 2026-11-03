@@ -54,7 +54,12 @@ public abstract class ApiTestBase(ApiTestFixture fixture) : IAsyncLifetime
     protected async Task<ApplicationUser> CreateUserAsync(Employee employee, string password = Password)
     {
         await ArrangeAsync(dbContext => dbContext.Employees.Add(employee));
+        return await CreateLoginAsync(employee, password);
+    }
 
+    /// <summary>Creates a login for an employee that is already saved.</summary>
+    protected async Task<ApplicationUser> CreateLoginAsync(Employee employee, string password = Password)
+    {
         await using var scope = CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var user = ApplicationUser.ForEmployee(employee);
@@ -69,10 +74,22 @@ public abstract class ApiTestBase(ApiTestFixture fixture) : IAsyncLifetime
         return await Client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, password), CancellationToken);
     }
 
-    /// <summary>Creates a login for the employee, signs in and sends the access token with every request.</summary>
+    /// <summary>Saves the employee with a login, signs in and sends the access token with every request.</summary>
     protected async Task SignInAsync(Employee employee)
     {
         await CreateUserAsync(employee);
+        await UseAccessTokenOfAsync(employee);
+    }
+
+    /// <summary>Signs in as an employee that is already saved, e.g. the manager of the signed-in employee.</summary>
+    protected async Task SignInAsExistingAsync(Employee employee)
+    {
+        await CreateLoginAsync(employee);
+        await UseAccessTokenOfAsync(employee);
+    }
+
+    private async Task UseAccessTokenOfAsync(Employee employee)
+    {
         var response = await LoginAsync(employee.Email);
         response.EnsureSuccessStatusCode();
 

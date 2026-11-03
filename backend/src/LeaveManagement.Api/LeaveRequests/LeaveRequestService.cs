@@ -54,13 +54,29 @@ internal sealed class LeaveRequestService(
     }
 
     /// <returns>The id of the new request.</returns>
-    public async Task<Guid> SubmitAsync(
+    public Task<Guid> SubmitAsync(
         Guid employeeId,
         LeaveRequestDraftRequest request,
+        CancellationToken cancellationToken) =>
+        SubmitLockedAsync(employeeId, request.ToDraft(), certificate: null, cancellationToken);
+
+    /// <summary>Saves the sick leave and its certificate together, or neither.</summary>
+    /// <returns>The id of the new request.</returns>
+    public async Task<Guid> ReportSickLeaveAsync(
+        Guid employeeId,
+        ReportSickLeaveForm form,
         CancellationToken cancellationToken)
     {
-        var draft = request.ToDraft();
+        var certificate = form.Certificate is null ? null : await ReadCertificateAsync(form.Certificate, cancellationToken);
+        return await SubmitLockedAsync(employeeId, form.ToDraftRequest().ToDraft(), certificate, cancellationToken);
+    }
 
+    private async Task<Guid> SubmitLockedAsync(
+        Guid employeeId,
+        LeaveRequestDraft draft,
+        CertificateUpload? certificate,
+        CancellationToken cancellationToken)
+    {
         // Two requests submitted at the same time would both pass the overlap and balance checks.
         // Locking the employee's row serializes the submissions of one employee only.
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -72,10 +88,29 @@ internal sealed class LeaveRequestService(
         var leaveRequest = LeaveRequest.Submit(submission.Employee, draft, submission.Context);
 
         dbContext.LeaveRequests.Add(leaveRequest);
+        if (certificate is not null)
+        {
+            dbContext.MedicalCertificates.Add(MedicalCertificate.Create(
+                leaveRequest, certificate.FileName, certificate.ContentType, certificate.Content, clock.Now()));
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return leaveRequest.Id;
+    }
+
+    // The validator has checked size and type; the type is taken from the content, not from the client.
+    private static async Task<CertificateUpload> ReadCertificateAsync(IFormFile file, CancellationToken cancellationToken)
+    {
+        using var buffer = new MemoryStream(capacity: (int)file.Length);
+        await file.CopyToAsync(buffer, cancellationToken);
+        var content = buffer.ToArray();
+
+        var contentType = CertificateFileType.Detect(content)
+            ?? throw new InvalidOperationException("The certificate was not validated.");
+
+        return new CertificateUpload(file.FileName, contentType, content);
     }
 
     /// <param name="version">The version the employee saw; a change in the meantime becomes a 409.</param>
@@ -170,4 +205,6 @@ internal sealed class LeaveRequestService(
     }
 
     private sealed record Submission(Employee Employee, SubmissionContext Context, IReadOnlyList<Holiday> Holidays);
+
+    private sealed record CertificateUpload(string FileName, string ContentType, byte[] Content);
 }
