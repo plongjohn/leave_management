@@ -96,11 +96,38 @@ The working year for care leave starts on the anniversary of the entry date.
 - **Special leave limits in a table maintained by HR:** closer to reality because they depend
   on the collective agreement, but more effort; possible later.
 
+## Addendum 2026-11-03 – sick leave during vacation (phase 6)
+
+Decided with the user before phase 6; closes the known gap "sick leave during approved vacation".
+
+- **Every sick day during approved vacation counts as sickness**, not only from the fourth day as
+  § 5 UrlG requires. This is more generous than the law and allowed as a company rule.
+- **Certificate:** the first **3 working days** of a sickness need no medical certificate
+  (`SickLeaveDuringVacation.WorkingDaysWithoutCertificate`); weekends and holidays do not count.
+  Sick leave during vacation with more than three working days can only be reported with a
+  certificate. Sick leave outside vacation may come with one.
+- **Calculated, not stored:** the vacation keeps its day snapshot. `LeaveBalanceCalculator` does not
+  take vacation days on which an approved sick leave lies, so the days come back without changing
+  the vacation request.
+- **Revocation by HR:** if the certificate is invalid, HR revokes it with a reason. The sick leave
+  stays; only its first three working days still count as sickness, the remaining vacation days are
+  taken again. Example: sick Thursday to Tuesday during vacation, certificate revoked – Thursday,
+  Friday and Monday stay sickness, Tuesday is vacation.
+- **Negative balance:** a revocation can leave planned vacation uncovered, because the returned days
+  were already planned again. This is allowed – the leave was taken – and the balance shows a
+  negative number; new vacation is only possible once the balance is covered again.
+- **Pending vacation:** sick leave that overlaps a pending vacation request is rejected
+  (`leave_request.overlaps_pending_vacation`); the employee cancels the pending request first, so a
+  manager cannot approve vacation for days the employee was ill.
+- **Visibility:** colleagues only see that someone is absent, never the type (no sickness); managers
+  see the type for their own reports, HR sees everything. "Team" means the employees with the same
+  manager, the manager and one's own reports.
+
+How the API transports these rules (multipart upload, certificates in PostgreSQL, who may download
+them) is recorded in ADR 0008.
+
 ## Known gaps
 
-- **Sick leave during approved vacation** (§ 5 UrlG: more than three calendar days do not count
-  as leave) – planned for phase 6 as an HR action that returns the vacation days. Until then the
-  overlap rule applies to all types. A skipped test marks the gap.
 - Part-time and other working-week models, pro-rata entitlements in the entry year and
   automatic sixth week are not supported; HR adjusts the entitlement manually.
 
