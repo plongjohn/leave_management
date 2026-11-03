@@ -1149,6 +1149,10 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("end_date");
 
+                    b.Property<bool>("HasMedicalCertificate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_medical_certificate");
+
                     b.Property<string>("SpecialLeaveReason")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")

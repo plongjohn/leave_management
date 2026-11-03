@@ -10,6 +10,8 @@ public static class LeaveRequestErrors
     public const string StartsBeforeEntryDate = "leave_request.starts_before_entry_date";
     public const string NoWorkingDays = "leave_request.no_working_days";
     public const string Overlapping = "leave_request.overlapping";
+    public const string OverlapsPendingVacation = "leave_request.overlaps_pending_vacation";
+    public const string MedicalCertificateRequired = "leave_request.medical_certificate_required";
     public const string InsufficientBalance = "leave_request.insufficient_balance";
     public const string SpecialLeaveReasonRequired = "leave_request.special_leave_reason_required";
     public const string SpecialLeaveReasonNotAllowed = "leave_request.special_leave_reason_not_allowed";
@@ -31,6 +33,18 @@ public static class LeaveRequestErrors
 
     internal static BusinessRuleViolationException OverlappingViolation() =>
         new(Overlapping, "The period overlaps with another pending or approved request.");
+
+    internal static BusinessRuleViolationException OverlapsPendingVacationViolation() =>
+        new(
+            OverlapsPendingVacation,
+            "Sick leave cannot overlap a pending vacation request; cancel the pending request first.");
+
+    internal static BusinessRuleViolationException MedicalCertificateRequiredViolation() =>
+        new(
+            MedicalCertificateRequired,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"Sick leave of more than {SickLeaveDuringVacation.CalendarDaysWithoutCertificate} calendar days during approved vacation needs a medical certificate."));
 
     internal static BusinessRuleViolationException InsufficientBalanceViolation(decimal uncoveredDays) =>
         new(

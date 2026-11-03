@@ -67,6 +67,29 @@ public sealed class LeaveRequestPersistenceTests : ApiTestBase
     }
 
     [Fact]
+    public async Task SaveChanges_SickLeaveWithCertificate_RoundTripsCertificateFlag()
+    {
+        await using var scope = CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>();
+        var sickLeave = LeaveRequest.Submit(
+            _employee,
+            new LeaveRequestDraft(
+                new DateRange(new DateOnly(2026, 2, 23), new DateOnly(2026, 2, 27)),
+                LeaveType.SickLeave,
+                HasMedicalCertificate: true),
+            new SubmissionContext(new WorkingDayCalendar([]), [], [], Today, Now));
+        dbContext.Employees.AddRange(_manager, _employee);
+        dbContext.LeaveRequests.Add(sickLeave);
+        await dbContext.SaveChangesAsync(CancellationToken);
+
+        await using var readScope = CreateScope();
+        var loaded = await readScope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>()
+            .LeaveRequests.SingleAsync(entry => entry.Id == sickLeave.Id, CancellationToken);
+
+        Assert.True(loaded.HasMedicalCertificate);
+    }
+
+    [Fact]
     public async Task SaveChanges_ConcurrentDecisions_ThrowsConcurrencyException()
     {
         var request = await SubmitAndSaveVacationAsync(new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12));

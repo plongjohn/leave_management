@@ -21,6 +21,7 @@ public sealed class LeaveRequest
         decimal workingDays,
         LeaveRequestStatus status,
         string? comment,
+        bool hasMedicalCertificate,
         DateTimeOffset createdAt)
     {
         Id = id;
@@ -32,6 +33,7 @@ public sealed class LeaveRequest
         WorkingDays = workingDays;
         Status = status;
         Comment = comment;
+        HasMedicalCertificate = hasMedicalCertificate;
         CreatedAt = createdAt;
     }
 
@@ -53,6 +55,9 @@ public sealed class LeaveRequest
     public LeaveRequestStatus Status { get; private set; }
 
     public string? Comment { get; private set; }
+
+    /// <summary>Sick leave only: a medical certificate came with the report; the file is stored separately.</summary>
+    public bool HasMedicalCertificate { get; private set; }
 
     /// <summary>Stored in UTC, like all timestamps.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
@@ -83,7 +88,7 @@ public sealed class LeaveRequest
 
         var period = draft.Period;
         var comment = NormalizeComment(draft.Comment);
-        EnsureReasonMatchesType(draft);
+        EnsureDetailsMatchType(draft);
 
         if (period.Start < employee.EntryDate)
         {
@@ -109,10 +114,7 @@ public sealed class LeaveRequest
             .Where(request => request.EmployeeId == employee.Id && request.IsActive)
             .ToList();
 
-        if (activeRequests.Any(request => request.Period.Overlaps(period)))
-        {
-            throw LeaveRequestErrors.OverlappingViolation();
-        }
+        EnsureNoOverlap(draft, activeRequests);
 
         var leaveRequest = new LeaveRequest(
             Guid.CreateVersion7(),
@@ -124,6 +126,7 @@ public sealed class LeaveRequest
             days.Sum(day => day.WorkingDays),
             InitialStatus(draft.Type),
             comment,
+            draft.HasMedicalCertificate,
             context.Now.ToUniversalTime());
         leaveRequest._days.AddRange(days);
 
@@ -173,7 +176,7 @@ public sealed class LeaveRequest
     private static LeaveRequestStatus InitialStatus(LeaveType type) =>
         type == LeaveType.SickLeave ? LeaveRequestStatus.Approved : LeaveRequestStatus.Pending;
 
-    private static void EnsureReasonMatchesType(LeaveRequestDraft draft)
+    private static void EnsureDetailsMatchType(LeaveRequestDraft draft)
     {
         if (draft.Type == LeaveType.SpecialLeave && draft.SpecialLeaveReason is null)
         {
@@ -188,6 +191,43 @@ public sealed class LeaveRequest
         if (draft.SpecialLeaveReason is { } reason && !Enum.IsDefined(reason))
         {
             throw new ArgumentOutOfRangeException(nameof(draft), "Unknown special leave reason.");
+        }
+
+        if (draft.Type != LeaveType.SickLeave && draft.HasMedicalCertificate)
+        {
+            throw new ArgumentException("Only sick leave comes with a medical certificate.", nameof(draft));
+        }
+    }
+
+    // Sick leave may lie in approved vacation: the employee falls ill, the vacation days come back
+    // (SickLeaveDuringVacation). Any other overlap means the same day would be requested twice.
+    private static void EnsureNoOverlap(LeaveRequestDraft draft, IEnumerable<LeaveRequest> activeRequests)
+    {
+        var overlapping = activeRequests.Where(request => request.Period.Overlaps(draft.Period)).ToList();
+        if (overlapping.Count == 0)
+        {
+            return;
+        }
+
+        if (draft.Type != LeaveType.SickLeave)
+        {
+            throw LeaveRequestErrors.OverlappingViolation();
+        }
+
+        // A pending vacation could still be approved for days the employee was ill.
+        if (overlapping.Any(request => request.Type == LeaveType.Vacation && request.Status == LeaveRequestStatus.Pending))
+        {
+            throw LeaveRequestErrors.OverlapsPendingVacationViolation();
+        }
+
+        if (!overlapping.All(SickLeaveDuringVacation.MayOverlap))
+        {
+            throw LeaveRequestErrors.OverlappingViolation();
+        }
+
+        if (SickLeaveDuringVacation.RequiresCertificate(draft.Period) && !draft.HasMedicalCertificate)
+        {
+            throw LeaveRequestErrors.MedicalCertificateRequiredViolation();
         }
     }
 

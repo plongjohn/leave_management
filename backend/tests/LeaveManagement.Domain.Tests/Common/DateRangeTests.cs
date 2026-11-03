@@ -46,4 +46,15 @@ public sealed class DateRangeTests
             [new DateOnly(2026, 12, 30), new DateOnly(2026, 12, 31), new DateOnly(2027, 1, 1), new DateOnly(2027, 1, 2)],
             range.Days());
     }
+
+    [Theory]
+    [InlineData("2026-05-04", "2026-05-04", 1)]
+    [InlineData("2026-06-12", "2026-06-15", 4)]   // Friday to Monday, weekend included
+    [InlineData("2026-12-30", "2027-01-02", 4)]
+    public void CalendarDays_Range_CountsBothEnds(string start, string end, int expected)
+    {
+        var range = new DateRange(DateOnly.Parse(start, CultureInfo.InvariantCulture), DateOnly.Parse(end, CultureInfo.InvariantCulture));
+
+        Assert.Equal(expected, range.CalendarDays);
+    }
 }
