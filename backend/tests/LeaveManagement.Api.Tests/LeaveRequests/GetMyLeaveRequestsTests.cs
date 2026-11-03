@@ -120,13 +120,8 @@ public sealed class GetMyLeaveRequestsTests : ApiTestBase
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    // The manager first, because the employee references them; the requests last.
-    private async Task SignInWithRequestsAsync(params LeaveRequest[] requests)
-    {
-        await ArrangeAsync(dbContext => dbContext.Employees.Add(_manager));
-        await SignInAsync(_employee);
-        await ArrangeAsync(dbContext => dbContext.LeaveRequests.AddRange(requests));
-    }
+    private Task SignInWithRequestsAsync(params LeaveRequest[] requests) =>
+        SignInWithManagerAsync(_manager, _employee, dbContext => dbContext.LeaveRequests.AddRange(requests));
 
     private async Task<List<MyLeaveRequestResponse>> GetAsync(int year)
     {

@@ -98,16 +98,12 @@ public sealed class GetMyLeaveBalanceTests : ApiTestBase
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private async Task SignInWithDataAsync(List<LeaveEntitlement> entitlements, params LeaveRequest[] requests)
-    {
-        await ArrangeAsync(dbContext => dbContext.Employees.Add(_manager));
-        await SignInAsync(_employee);
-        await ArrangeAsync(dbContext =>
+    private Task SignInWithDataAsync(List<LeaveEntitlement> entitlements, params LeaveRequest[] requests) =>
+        SignInWithManagerAsync(_manager, _employee, dbContext =>
         {
             dbContext.LeaveEntitlements.AddRange(entitlements);
             dbContext.LeaveRequests.AddRange(requests);
         });
-    }
 
     private async Task<LeaveBalanceResponse> GetAsync()
     {

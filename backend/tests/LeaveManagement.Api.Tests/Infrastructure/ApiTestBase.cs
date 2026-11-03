@@ -79,4 +79,21 @@ public abstract class ApiTestBase(ApiTestFixture fixture) : IAsyncLifetime
         var token = await response.Content.ReadFromJsonAsync<AccessTokenResponse>(CancellationToken);
         Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
     }
+
+    /// <summary>
+    /// Saves the manager, signs the employee in and then saves the employee's data: in this order,
+    /// because the employee references the manager and the data references the employee.
+    /// </summary>
+    protected async Task SignInWithManagerAsync(
+        Employee manager,
+        Employee employee,
+        Action<LeaveManagementDbContext>? arrangeAfterwards = null)
+    {
+        await ArrangeAsync(dbContext => dbContext.Employees.Add(manager));
+        await SignInAsync(employee);
+        if (arrangeAfterwards is not null)
+        {
+            await ArrangeAsync(arrangeAfterwards);
+        }
+    }
 }

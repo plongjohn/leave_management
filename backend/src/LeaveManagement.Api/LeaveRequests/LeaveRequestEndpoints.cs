@@ -10,6 +10,8 @@ internal static class LeaveRequestEndpoints
     public static IServiceCollection AddLeaveRequestFeature(this IServiceCollection services)
     {
         services.AddScoped<LeaveRequestQueries>();
+        services.AddScoped<LeaveRequestService>();
+        services.AddScoped<TeamQueries>();
         return services;
     }
 
@@ -24,7 +26,20 @@ internal static class LeaveRequestEndpoints
 
         me.MapGet("/leave-balance", GetMyLeaveBalanceAsync).WithName("GetMyLeaveBalance");
 
+        me.MapPost("/leave-requests/preview", PreviewLeaveRequestAsync)
+            .WithName("PreviewLeaveRequest")
+            .WithValidation<LeaveRequestDraftRequest>();
+
         return endpoints;
+    }
+
+    private static async Task<Ok<LeaveRequestPreviewResponse>> PreviewLeaveRequestAsync(
+        LeaveRequestDraftRequest request,
+        ClaimsPrincipal user,
+        LeaveRequestService service,
+        CancellationToken cancellationToken)
+    {
+        return TypedResults.Ok(await service.PreviewAsync(user.GetEmployeeId(), request, cancellationToken));
     }
 
     private static async Task<Ok<IReadOnlyList<MyLeaveRequestResponse>>> GetMyLeaveRequestsAsync(
