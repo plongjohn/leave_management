@@ -203,4 +203,27 @@ public sealed class LeaveRequestDecisionTests
 
         AssertRule.Violated(LeaveRequestErrors.NotCancellable, () => _request.Cancel(TestRequests.Today));
     }
+
+    [Fact]
+    public void CanBeCancelled_Pending_IsTrueEvenAfterStart()
+    {
+        Assert.True(_request.CanBeCancelled(_request.StartDate.AddDays(1)));
+    }
+
+    [Fact]
+    public void CanBeCancelled_Approved_IsTrueOnlyBeforeStart()
+    {
+        _request.Approve(_manager, _employee, TestRequests.Now);
+
+        Assert.True(_request.CanBeCancelled(_request.StartDate.AddDays(-1)));
+        Assert.False(_request.CanBeCancelled(_request.StartDate));
+    }
+
+    [Fact]
+    public void CanBeCancelled_Rejected_IsFalse()
+    {
+        _request.Reject(_manager, _employee, TestRequests.Now);
+
+        Assert.False(_request.CanBeCancelled(TestRequests.Today));
+    }
 }

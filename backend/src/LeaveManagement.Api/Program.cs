@@ -4,6 +4,7 @@ using LeaveManagement.Api.Auth;
 using LeaveManagement.Api.Common;
 using LeaveManagement.Api.Employees;
 using LeaveManagement.Api.Holidays;
+using LeaveManagement.Api.LeaveRequests;
 using LeaveManagement.Infrastructure;
 using LeaveManagement.Infrastructure.Persistence;
 using LeaveManagement.Infrastructure.Persistence.Seeding;
@@ -27,6 +28,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>(includeInternalTyp
 builder.Services.AddAuthFeature(builder.Configuration);
 builder.Services.AddEmployeeFeature();
 builder.Services.AddHolidayFeature();
+builder.Services.AddLeaveRequestFeature();
 
 // Enums as names ("Hr"), not numbers, in requests and responses.
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -57,5 +59,6 @@ app.MapHealthChecks("/health").AllowAnonymous();
 app.MapAuthEndpoints();
 app.MapEmployeeEndpoints();
 app.MapHolidayEndpoints();
+app.MapLeaveRequestEndpoints();
 
 app.Run();

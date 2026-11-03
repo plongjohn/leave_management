@@ -166,19 +166,19 @@ public sealed class LeaveRequest
         Decide(LeaveRequestStatus.Rejected, approver, now);
     }
 
+    /// <summary>Pending requests can always be cancelled, approved ones only before they start.</summary>
+    /// <param name="today">The current date in the company's time zone.</param>
+    public bool CanBeCancelled(DateOnly today) =>
+        Status == LeaveRequestStatus.Pending || (Status == LeaveRequestStatus.Approved && today < StartDate);
+
     /// <param name="today">The current date in the company's time zone.</param>
     public void Cancel(DateOnly today)
     {
-        switch (Status)
+        if (!CanBeCancelled(today))
         {
-            case LeaveRequestStatus.Pending:
-                break;
-            case LeaveRequestStatus.Approved when today < StartDate:
-                break;
-            case LeaveRequestStatus.Approved:
-                throw LeaveRequestErrors.AlreadyStartedViolation();
-            default:
-                throw LeaveRequestErrors.NotCancellableViolation(Status);
+            throw Status == LeaveRequestStatus.Approved
+                ? LeaveRequestErrors.AlreadyStartedViolation()
+                : LeaveRequestErrors.NotCancellableViolation(Status);
         }
 
         Status = LeaveRequestStatus.Cancelled;

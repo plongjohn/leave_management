@@ -21,9 +21,15 @@ public abstract class ApiTestBase(ApiTestFixture fixture) : IAsyncLifetime
 
     protected static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
 
+    /// <summary>The company's date for the business rules, see <see cref="LeaveManagementApiFactory.CompanyTime"/>.</summary>
+    protected static DateOnly Today => TestLeaveRequests.Today;
+
     public virtual async ValueTask InitializeAsync()
     {
         await fixture.Database.ResetAsync();
+
+        // The host is shared, so a test that moves the clock must not affect the next one.
+        fixture.Factory.CompanyTime.UtcNow = LeaveManagementApiFactory.DefaultCompanyNow;
     }
 
     public virtual ValueTask DisposeAsync()

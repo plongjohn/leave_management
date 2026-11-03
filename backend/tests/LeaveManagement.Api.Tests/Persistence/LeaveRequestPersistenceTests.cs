@@ -13,7 +13,6 @@ namespace LeaveManagement.Api.Tests.Persistence;
 /// <summary>Checks the EF Core mapping of the leave domain against the real database schema.</summary>
 public sealed class LeaveRequestPersistenceTests : ApiTestBase
 {
-    private static readonly DateOnly Today = new(2026, 3, 2);
     private static readonly DateTimeOffset Now = new(2026, 3, 2, 8, 0, 0, TimeSpan.FromHours(1));
 
     private readonly Employee _manager;
