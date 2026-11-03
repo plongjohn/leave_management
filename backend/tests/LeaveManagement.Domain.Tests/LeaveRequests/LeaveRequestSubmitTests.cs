@@ -226,8 +226,24 @@ public sealed class LeaveRequestSubmitTests
             () => TestRequests.Submit(_employee, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 8), comment: comment));
     }
 
-    [Fact(Skip = "Phase 6: sick leave of more than three days during approved vacation returns the vacation days (§ 5 UrlG).")]
+    [Fact]
     public void Submit_SickLeaveDuringApprovedVacation_ReturnsVacationDays()
     {
+        var manager = TestEmployees.Manager();
+        var employee = TestEmployees.ReportOf(manager);
+        var vacation = TestRequests.Approved(manager, employee, new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 19));
+
+        // Monday to Tuesday of the following week: nine calendar days, seven working days.
+        var sickLeave = TestRequests.Submit(
+            employee,
+            new DateOnly(2026, 6, 8),
+            new DateOnly(2026, 6, 16),
+            LeaveType.SickLeave,
+            existingRequests: [vacation],
+            hasMedicalCertificate: true);
+
+        var balance = LeaveBalanceCalculator.Calculate(TestRequests.StandardEntitlements(employee), [vacation, sickLeave]);
+        Assert.Equal(7m, SickLeaveDuringVacation.ReturnedDays(vacation, [vacation, sickLeave]));
+        Assert.Equal(3m, balance.Years.Sum(year => year.ApprovedDays));
     }
 }

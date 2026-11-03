@@ -22,7 +22,7 @@ public sealed class SickLeaveDuringVacationSubmitTests
     }
 
     [Fact]
-    public void Submit_ThreeCalendarDaysWithoutCertificate_IsApproved()
+    public void Submit_ThreeWorkingDaysWithoutCertificate_IsApproved()
     {
         var sickLeave = ReportSickLeave(new DateOnly(2026, 6, 9), new DateOnly(2026, 6, 11));
 
@@ -31,7 +31,7 @@ public sealed class SickLeaveDuringVacationSubmitTests
     }
 
     [Fact]
-    public void Submit_MoreThanThreeCalendarDaysWithoutCertificate_Throws()
+    public void Submit_MoreThanThreeWorkingDaysWithoutCertificate_Throws()
     {
         AssertRule.Violated(
             LeaveRequestErrors.MedicalCertificateRequired,
@@ -39,16 +39,25 @@ public sealed class SickLeaveDuringVacationSubmitTests
     }
 
     [Fact]
-    public void Submit_FridayToMonday_CountsCalendarDaysNotWorkingDays()
+    public void Submit_ThursdayToMonday_SkipsWeekendAndNeedsNoCertificate()
     {
-        // Two working days, but four calendar days: a certificate is needed.
-        AssertRule.Violated(
-            LeaveRequestErrors.MedicalCertificateRequired,
-            () => ReportSickLeave(new DateOnly(2026, 6, 12), new DateOnly(2026, 6, 15)));
+        // Five calendar days, but only Thursday, Friday and Monday are working days.
+        var sickLeave = ReportSickLeave(new DateOnly(2026, 6, 11), new DateOnly(2026, 6, 15));
+
+        Assert.Equal(LeaveRequestStatus.Approved, sickLeave.Status);
     }
 
     [Fact]
-    public void Submit_MoreThanThreeCalendarDaysWithCertificate_IsApprovedWithCertificate()
+    public void Submit_ThursdayToTuesday_NeedsCertificate()
+    {
+        // Tuesday is the fourth working day.
+        AssertRule.Violated(
+            LeaveRequestErrors.MedicalCertificateRequired,
+            () => ReportSickLeave(new DateOnly(2026, 6, 11), new DateOnly(2026, 6, 16)));
+    }
+
+    [Fact]
+    public void Submit_MoreThanThreeWorkingDaysWithCertificate_IsApprovedWithCertificate()
     {
         var sickLeave = ReportSickLeave(new DateOnly(2026, 6, 9), new DateOnly(2026, 6, 15), hasMedicalCertificate: true);
 
@@ -59,10 +68,11 @@ public sealed class SickLeaveDuringVacationSubmitTests
     [Fact]
     public void Submit_StartsBeforeVacation_CountsWholeSickLeave()
     {
-        // Only Monday and Tuesday lie in the vacation, but the sickness lasts five calendar days.
+        // Only Monday and Tuesday lie in the vacation, but Wednesday, Friday, Monday and Tuesday are four
+        // working days of sickness (Thursday, 4 June 2026, is Corpus Christi).
         AssertRule.Violated(
             LeaveRequestErrors.MedicalCertificateRequired,
-            () => ReportSickLeave(new DateOnly(2026, 6, 5), new DateOnly(2026, 6, 9)));
+            () => ReportSickLeave(new DateOnly(2026, 6, 3), new DateOnly(2026, 6, 9)));
     }
 
     [Fact]

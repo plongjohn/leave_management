@@ -8,6 +8,8 @@ public sealed class LeaveRequest
 {
     public const int CommentMaxLength = 500;
 
+    public const int RevocationReasonMaxLength = 500;
+
     private readonly List<LeaveRequestDay> _days = [];
 
     // Used by EF Core when materializing; parameter names match the property names.
@@ -58,6 +60,15 @@ public sealed class LeaveRequest
 
     /// <summary>Sick leave only: a medical certificate came with the report; the file is stored separately.</summary>
     public bool HasMedicalCertificate { get; private set; }
+
+    /// <summary>Set when HR rejected the medical certificate (<see cref="RevokeMedicalCertificate"/>).</summary>
+    public DateTimeOffset? CertificateRevokedAt { get; private set; }
+
+    public Guid? CertificateRevokedById { get; private set; }
+
+    public string? CertificateRevocationReason { get; private set; }
+
+    public bool IsCertificateRevoked => CertificateRevokedAt is not null;
 
     /// <summary>Stored in UTC, like all timestamps.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
@@ -114,7 +125,7 @@ public sealed class LeaveRequest
             .Where(request => request.EmployeeId == employee.Id && request.IsActive)
             .ToList();
 
-        EnsureNoOverlap(draft, activeRequests);
+        EnsureNoOverlap(draft, days, activeRequests);
 
         var leaveRequest = new LeaveRequest(
             Guid.CreateVersion7(),
@@ -173,6 +184,42 @@ public sealed class LeaveRequest
         Status = LeaveRequestStatus.Cancelled;
     }
 
+    /// <summary>
+    /// HR does not accept the medical certificate, e.g. because it is invalid or unreadable. The sick
+    /// leave stays, but only its first days count as sickness during vacation again; the other vacation
+    /// days are taken from the entitlement as planned (<see cref="SickLeaveDuringVacation"/>). The
+    /// balance may become negative, because the leave was taken.
+    /// </summary>
+    public void RevokeMedicalCertificate(Employee hr, string reason, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(hr);
+        var trimmedReason = RequireReason(reason);
+
+        if (hr.Role != EmployeeRole.Hr)
+        {
+            throw LeaveRequestErrors.NotHrViolation();
+        }
+
+        if (hr.Id == EmployeeId)
+        {
+            throw LeaveRequestErrors.OwnRequestViolation();
+        }
+
+        if (!HasMedicalCertificate)
+        {
+            throw LeaveRequestErrors.NoMedicalCertificateViolation();
+        }
+
+        if (IsCertificateRevoked)
+        {
+            throw LeaveRequestErrors.CertificateAlreadyRevokedViolation();
+        }
+
+        CertificateRevokedAt = now.ToUniversalTime();
+        CertificateRevokedById = hr.Id;
+        CertificateRevocationReason = trimmedReason;
+    }
+
     private static LeaveRequestStatus InitialStatus(LeaveType type) =>
         type == LeaveType.SickLeave ? LeaveRequestStatus.Approved : LeaveRequestStatus.Pending;
 
@@ -201,7 +248,10 @@ public sealed class LeaveRequest
 
     // Sick leave may lie in approved vacation: the employee falls ill, the vacation days come back
     // (SickLeaveDuringVacation). Any other overlap means the same day would be requested twice.
-    private static void EnsureNoOverlap(LeaveRequestDraft draft, IEnumerable<LeaveRequest> activeRequests)
+    private static void EnsureNoOverlap(
+        LeaveRequestDraft draft,
+        IReadOnlyCollection<LeaveRequestDay> days,
+        IEnumerable<LeaveRequest> activeRequests)
     {
         var overlapping = activeRequests.Where(request => request.Period.Overlaps(draft.Period)).ToList();
         if (overlapping.Count == 0)
@@ -225,7 +275,7 @@ public sealed class LeaveRequest
             throw LeaveRequestErrors.OverlappingViolation();
         }
 
-        if (SickLeaveDuringVacation.RequiresCertificate(draft.Period) && !draft.HasMedicalCertificate)
+        if (SickLeaveDuringVacation.RequiresCertificate(days) && !draft.HasMedicalCertificate)
         {
             throw LeaveRequestErrors.MedicalCertificateRequiredViolation();
         }
@@ -259,6 +309,19 @@ public sealed class LeaveRequest
         if (trimmed.Length > CommentMaxLength)
         {
             throw new ArgumentException($"Must not be longer than {CommentMaxLength} characters.", nameof(comment));
+        }
+
+        return trimmed;
+    }
+
+    private static string RequireReason(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        var trimmed = reason.Trim();
+        if (trimmed.Length > RevocationReasonMaxLength)
+        {
+            throw new ArgumentException($"Must not be longer than {RevocationReasonMaxLength} characters.", nameof(reason));
         }
 
         return trimmed;

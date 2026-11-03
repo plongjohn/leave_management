@@ -1124,6 +1124,19 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CertificateRevocationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("certificate_revocation_reason");
+
+                    b.Property<DateTimeOffset?>("CertificateRevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("certificate_revoked_at");
+
+                    b.Property<Guid?>("CertificateRevokedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("certificate_revoked_by_id");
+
                     b.Property<string>("Comment")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1187,6 +1200,9 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_leave_requests");
+
+                    b.HasIndex("CertificateRevokedById")
+                        .HasDatabaseName("ix_leave_requests_certificate_revoked_by_id");
 
                     b.HasIndex("DecidedById")
                         .HasDatabaseName("ix_leave_requests_decided_by_id");
@@ -1452,6 +1468,12 @@ namespace LeaveManagement.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("LeaveManagement.Domain.LeaveRequests.LeaveRequest", b =>
                 {
+                    b.HasOne("LeaveManagement.Domain.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("CertificateRevokedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_leave_requests_employees_certificate_revoked_by_id");
+
                     b.HasOne("LeaveManagement.Domain.Employees.Employee", null)
                         .WithMany()
                         .HasForeignKey("DecidedById")

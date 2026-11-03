@@ -5,12 +5,16 @@ namespace LeaveManagement.Domain.Entitlements;
 /// <summary>
 /// Allocates vacation days to the entitlements of the leave years (ADR 0007): every day of pending or
 /// approved vacation is taken from the oldest entitlement that has not expired on that day. Remaining
-/// days are therefore carried over implicitly and never stored.
+/// days are therefore carried over implicitly and never stored. Vacation days on which the employee
+/// was sick are not taken.
 /// </summary>
 public static class LeaveBalanceCalculator
 {
     /// <param name="entitlements">All entitlements of one employee.</param>
-    /// <param name="requests">All leave requests of the same employee; only pending and approved vacation counts.</param>
+    /// <param name="requests">
+    /// All leave requests of the same employee; pending and approved vacation is counted, approved sick
+    /// leave returns vacation days.
+    /// </param>
     public static LeaveBalance Calculate(IEnumerable<LeaveEntitlement> entitlements, IEnumerable<LeaveRequest> requests)
     {
         ArgumentNullException.ThrowIfNull(entitlements);
@@ -34,10 +38,16 @@ public static class LeaveBalanceCalculator
             throw new ArgumentException("There must be at most one entitlement per year.", nameof(entitlements));
         }
 
-        var vacationDays = requests
+        var requestList = requests.ToList();
+
+        // Days of sickness during vacation are not leave (SickLeaveDuringVacation).
+        var sickDates = SickLeaveDuringVacation.SickDates(requestList);
+
+        var vacationDays = requestList
             .Where(request => request.Type == LeaveType.Vacation && request.IsActive)
             .SelectMany(request => request.Days.Select(day =>
                 (day.Date, day.WorkingDays, IsPending: request.Status == LeaveRequestStatus.Pending)))
+            .Where(day => !sickDates.Contains(day.Date))
             .OrderBy(day => day.Date);
 
         var uncoveredDays = 0m;

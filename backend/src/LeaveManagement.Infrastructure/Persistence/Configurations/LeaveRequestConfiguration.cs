@@ -17,12 +17,14 @@ internal sealed class LeaveRequestConfiguration : IEntityTypeConfiguration<Leave
         builder.Property(request => request.Status).HasConversion<string>().HasMaxLength(ColumnLengths.Enum);
         builder.Property(request => request.WorkingDays).HasPrecision(ColumnLengths.DaysPrecision, ColumnLengths.DaysScale);
         builder.Property(request => request.Comment).HasMaxLength(LeaveRequest.CommentMaxLength);
+        builder.Property(request => request.CertificateRevocationReason).HasMaxLength(LeaveRequest.RevocationReasonMaxLength);
 
         // Npgsql maps a uint row version to PostgreSQL's xmin system column (no extra column).
         builder.Property(request => request.Version).IsRowVersion();
 
         builder.Ignore(request => request.Period);
         builder.Ignore(request => request.IsActive);
+        builder.Ignore(request => request.IsCertificateRevoked);
 
         builder.HasOne<Employee>()
             .WithMany()
@@ -32,6 +34,11 @@ internal sealed class LeaveRequestConfiguration : IEntityTypeConfiguration<Leave
         builder.HasOne<Employee>()
             .WithMany()
             .HasForeignKey(request => request.DecidedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Employee>()
+            .WithMany()
+            .HasForeignKey(request => request.CertificateRevokedById)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Overlap and balance checks load the requests of one employee around a period.

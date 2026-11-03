@@ -90,6 +90,34 @@ public sealed class LeaveRequestPersistenceTests : ApiTestBase
     }
 
     [Fact]
+    public async Task SaveChanges_RevokedCertificate_RoundTripsRevocation()
+    {
+        var hr = Employee.Create("Sabine", "Huber", "sabine.huber@example.at", new DateOnly(2015, 3, 1), EmployeeRole.Hr);
+        var sickLeave = LeaveRequest.Submit(
+            _employee,
+            new LeaveRequestDraft(
+                new DateRange(new DateOnly(2026, 2, 23), new DateOnly(2026, 2, 27)),
+                LeaveType.SickLeave,
+                HasMedicalCertificate: true),
+            new SubmissionContext(new WorkingDayCalendar([]), [], [], Today, Now));
+        sickLeave.RevokeMedicalCertificate(hr, "Attest nicht lesbar", Now);
+        await ArrangeAsync(dbContext =>
+        {
+            dbContext.Employees.AddRange(_manager, _employee, hr);
+            dbContext.LeaveRequests.Add(sickLeave);
+        });
+
+        await using var scope = CreateScope();
+        var loaded = await scope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>()
+            .LeaveRequests.SingleAsync(entry => entry.Id == sickLeave.Id, CancellationToken);
+
+        Assert.True(loaded.IsCertificateRevoked);
+        Assert.Equal(Now, loaded.CertificateRevokedAt);
+        Assert.Equal(hr.Id, loaded.CertificateRevokedById);
+        Assert.Equal("Attest nicht lesbar", loaded.CertificateRevocationReason);
+    }
+
+    [Fact]
     public async Task SaveChanges_ConcurrentDecisions_ThrowsConcurrencyException()
     {
         var request = await SubmitAndSaveVacationAsync(new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12));

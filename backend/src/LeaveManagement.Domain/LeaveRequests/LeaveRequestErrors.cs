@@ -12,6 +12,9 @@ public static class LeaveRequestErrors
     public const string Overlapping = "leave_request.overlapping";
     public const string OverlapsPendingVacation = "leave_request.overlaps_pending_vacation";
     public const string MedicalCertificateRequired = "leave_request.medical_certificate_required";
+    public const string NotHr = "leave_request.not_hr";
+    public const string NoMedicalCertificate = "leave_request.no_medical_certificate";
+    public const string CertificateAlreadyRevoked = "leave_request.certificate_already_revoked";
     public const string InsufficientBalance = "leave_request.insufficient_balance";
     public const string SpecialLeaveReasonRequired = "leave_request.special_leave_reason_required";
     public const string SpecialLeaveReasonNotAllowed = "leave_request.special_leave_reason_not_allowed";
@@ -44,7 +47,16 @@ public static class LeaveRequestErrors
             MedicalCertificateRequired,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"Sick leave of more than {SickLeaveDuringVacation.CalendarDaysWithoutCertificate} calendar days during approved vacation needs a medical certificate."));
+                $"Sick leave of more than {SickLeaveDuringVacation.WorkingDaysWithoutCertificate} working days during approved vacation needs a medical certificate."));
+
+    internal static BusinessRuleViolationException NotHrViolation() =>
+        new(NotHr, "Only HR may revoke a medical certificate.");
+
+    internal static BusinessRuleViolationException NoMedicalCertificateViolation() =>
+        new(NoMedicalCertificate, "The request has no medical certificate.");
+
+    internal static BusinessRuleViolationException CertificateAlreadyRevokedViolation() =>
+        new(CertificateAlreadyRevoked, "The medical certificate has already been revoked.");
 
     internal static BusinessRuleViolationException InsufficientBalanceViolation(decimal uncoveredDays) =>
         new(

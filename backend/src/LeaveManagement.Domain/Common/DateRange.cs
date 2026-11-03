@@ -18,9 +18,6 @@ public readonly record struct DateRange
 
     public DateOnly End { get; }
 
-    /// <summary>The number of calendar days, both ends included.</summary>
-    public int CalendarDays => End.DayNumber - Start.DayNumber + 1;
-
     public bool Overlaps(DateRange other) => Start <= other.End && other.Start <= End;
 
     public bool Contains(DateOnly date) => Start <= date && date <= End;
