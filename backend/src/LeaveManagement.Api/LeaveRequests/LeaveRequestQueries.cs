@@ -27,6 +27,27 @@ internal sealed class LeaveRequestQueries(LeaveManagementDbContext dbContext, Co
             .OrderByDescending(request => request.StartDate)
             .ToListAsync(cancellationToken);
 
+        return await ToResponsesAsync(employeeId, requests, cancellationToken);
+    }
+
+    /// <summary>One of the employee's own requests; <c>null</c> if it does not exist or belongs to someone else.</summary>
+    public async Task<MyLeaveRequestResponse?> GetMineByIdAsync(
+        Guid employeeId,
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        var request = await dbContext.LeaveRequests
+            .AsNoTracking()
+            .SingleOrDefaultAsync(entry => entry.Id == requestId && entry.EmployeeId == employeeId, cancellationToken);
+
+        return request is null ? null : (await ToResponsesAsync(employeeId, [request], cancellationToken))[0];
+    }
+
+    private async Task<IReadOnlyList<MyLeaveRequestResponse>> ToResponsesAsync(
+        Guid employeeId,
+        List<LeaveRequest> requests,
+        CancellationToken cancellationToken)
+    {
         var sickLeaves = await LoadSickLeavesDuringVacationAsync(employeeId, requests, cancellationToken);
         var managerId = await dbContext.Employees
             .Where(employee => employee.Id == employeeId)

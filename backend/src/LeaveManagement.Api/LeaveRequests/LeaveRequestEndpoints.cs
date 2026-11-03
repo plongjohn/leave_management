@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using LeaveManagement.Api.Auth;
 using LeaveManagement.Api.Common;
+using LeaveManagement.Domain.LeaveRequests;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LeaveManagement.Api.LeaveRequests;
@@ -24,22 +25,25 @@ internal static class LeaveRequestEndpoints
             .WithName("GetMyLeaveRequests")
             .WithValidation<GetMyLeaveRequestsRequest>();
 
+        me.MapGet("/leave-requests/{id:guid}", GetMyLeaveRequestAsync).WithName("GetMyLeaveRequest");
+
         me.MapGet("/leave-balance", GetMyLeaveBalanceAsync).WithName("GetMyLeaveBalance");
 
         me.MapPost("/leave-requests/preview", PreviewLeaveRequestAsync)
             .WithName("PreviewLeaveRequest")
             .WithValidation<LeaveRequestDraftRequest>();
 
-        return endpoints;
-    }
+        me.MapPost("/leave-requests", SubmitLeaveRequestAsync)
+            .WithName("SubmitLeaveRequest")
+            .WithValidation<LeaveRequestDraftRequest>()
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-    private static async Task<Ok<LeaveRequestPreviewResponse>> PreviewLeaveRequestAsync(
-        LeaveRequestDraftRequest request,
-        ClaimsPrincipal user,
-        LeaveRequestService service,
-        CancellationToken cancellationToken)
-    {
-        return TypedResults.Ok(await service.PreviewAsync(user.GetEmployeeId(), request, cancellationToken));
+        me.MapPost("/leave-requests/{id:guid}/cancel", CancelLeaveRequestAsync)
+            .WithName("CancelLeaveRequest")
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        return endpoints;
     }
 
     private static async Task<Ok<IReadOnlyList<MyLeaveRequestResponse>>> GetMyLeaveRequestsAsync(
@@ -51,11 +55,65 @@ internal static class LeaveRequestEndpoints
         return TypedResults.Ok(await queries.GetMineAsync(user.GetEmployeeId(), request.Year, cancellationToken));
     }
 
+    private static async Task<Results<Ok<MyLeaveRequestResponse>, NotFound>> GetMyLeaveRequestAsync(
+        Guid id,
+        ClaimsPrincipal user,
+        LeaveRequestQueries queries,
+        CancellationToken cancellationToken)
+    {
+        var request = await queries.GetMineByIdAsync(user.GetEmployeeId(), id, cancellationToken);
+        return request is null ? TypedResults.NotFound() : TypedResults.Ok(request);
+    }
+
     private static async Task<Ok<LeaveBalanceResponse>> GetMyLeaveBalanceAsync(
         ClaimsPrincipal user,
         LeaveRequestQueries queries,
         CancellationToken cancellationToken)
     {
         return TypedResults.Ok(await queries.GetMyBalanceAsync(user.GetEmployeeId(), cancellationToken));
+    }
+
+    private static async Task<Ok<LeaveRequestPreviewResponse>> PreviewLeaveRequestAsync(
+        LeaveRequestDraftRequest request,
+        ClaimsPrincipal user,
+        LeaveRequestService service,
+        CancellationToken cancellationToken)
+    {
+        return TypedResults.Ok(await service.PreviewAsync(user.GetEmployeeId(), request, cancellationToken));
+    }
+
+    // Violated rules become a 422 in BusinessRuleExceptionHandler.
+    private static async Task<Results<Created<MyLeaveRequestResponse>, ValidationProblem>> SubmitLeaveRequestAsync(
+        LeaveRequestDraftRequest request,
+        ClaimsPrincipal user,
+        LeaveRequestService service,
+        LeaveRequestQueries queries,
+        CancellationToken cancellationToken)
+    {
+        // Sick leave is reported with its certificate in one multipart request (POST /api/me/sick-leaves).
+        if (request.Type == LeaveType.SickLeave)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.Type)] = ["Sick leave is reported with POST /api/me/sick-leaves."],
+            });
+        }
+
+        var employeeId = user.GetEmployeeId();
+        var id = await service.SubmitAsync(employeeId, request, cancellationToken);
+        var created = await queries.GetMineByIdAsync(employeeId, id, cancellationToken);
+
+        return TypedResults.Created($"/api/me/leave-requests/{id}", created);
+    }
+
+    private static async Task<Results<NoContent, NotFound>> CancelLeaveRequestAsync(
+        Guid id,
+        CancelLeaveRequestRequest request,
+        ClaimsPrincipal user,
+        LeaveRequestService service,
+        CancellationToken cancellationToken)
+    {
+        var cancelled = await service.CancelAsync(user.GetEmployeeId(), id, request.Version, cancellationToken);
+        return cancelled ? TypedResults.NoContent() : TypedResults.NotFound();
     }
 }

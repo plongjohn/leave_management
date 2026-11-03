@@ -53,6 +53,56 @@ internal sealed class LeaveRequestService(
             await teamQueries.GetAbsentColleaguesAsync(employeeId, draft.Period, cancellationToken));
     }
 
+    /// <returns>The id of the new request.</returns>
+    public async Task<Guid> SubmitAsync(
+        Guid employeeId,
+        LeaveRequestDraftRequest request,
+        CancellationToken cancellationToken)
+    {
+        var draft = request.ToDraft();
+
+        // Two requests submitted at the same time would both pass the overlap and balance checks.
+        // Locking the employee's row serializes the submissions of one employee only.
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await dbContext.Database.ExecuteSqlAsync(
+            $"SELECT 1 FROM employees WHERE id = {employeeId} FOR UPDATE",
+            cancellationToken);
+
+        var submission = await LoadSubmissionAsync(employeeId, draft.Period, cancellationToken);
+        var leaveRequest = LeaveRequest.Submit(submission.Employee, draft, submission.Context);
+
+        dbContext.LeaveRequests.Add(leaveRequest);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return leaveRequest.Id;
+    }
+
+    /// <param name="version">The version the employee saw; a change in the meantime becomes a 409.</param>
+    /// <returns><c>false</c> if the request does not exist or belongs to someone else.</returns>
+    public async Task<bool> CancelAsync(
+        Guid employeeId,
+        Guid requestId,
+        uint version,
+        CancellationToken cancellationToken)
+    {
+        var leaveRequest = await dbContext.LeaveRequests
+            .SingleOrDefaultAsync(request => request.Id == requestId && request.EmployeeId == employeeId, cancellationToken);
+        if (leaveRequest is null)
+        {
+            return false;
+        }
+
+        // EF Core compares this value with xmin when saving: if the manager decided in the meantime,
+        // the employee cancels something they have not seen.
+        dbContext.Entry(leaveRequest).Property(request => request.Version).OriginalValue = version;
+
+        leaveRequest.Cancel(clock.Today());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
+
     private async Task<Submission> LoadSubmissionAsync(
         Guid employeeId,
         DateRange period,
