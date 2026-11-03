@@ -1,8 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using LeaveManagement.Api.Auth;
 using LeaveManagement.Api.Tests.Infrastructure;
 using LeaveManagement.Domain.Employees;
@@ -11,11 +9,6 @@ namespace LeaveManagement.Api.Tests.Auth;
 
 public sealed class CurrentUserTests(ApiTestFixture fixture) : ApiTestBase(fixture)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter() },
-    };
-
     private readonly Employee _employee =
         Employee.Create("Sabine", "Huber", "sabine.huber@example.at", new DateOnly(2015, 3, 1), EmployeeRole.Hr);
 
@@ -28,7 +21,7 @@ public sealed class CurrentUserTests(ApiTestFixture fixture) : ApiTestBase(fixtu
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"role\":\"Hr\"", await response.Content.ReadAsStringAsync(CancellationToken), StringComparison.Ordinal);
-        var currentUser = await response.Content.ReadFromJsonAsync<CurrentUserResponse>(JsonOptions, CancellationToken);
+        var currentUser = await response.Content.ReadFromJsonAsync<CurrentUserResponse>(ApiJson.Options, CancellationToken);
         Assert.Equal(
             new CurrentUserResponse(_employee.Id, "Sabine", "Huber", "sabine.huber@example.at", EmployeeRole.Hr),
             currentUser);
