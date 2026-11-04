@@ -7,9 +7,9 @@ import { provideAppLocale } from '../../../core/i18n/locale.providers';
 import { LeaveDataService } from '../../../shared/leave/leave-data.service';
 import { SpecialLeaveReasonLimit } from '../../../shared/leave/leave.models';
 import { settle } from '../../../testing/settle';
-import { MyLeaveRequest } from '../my-requests.models';
+import { LeaveRequestPreview, MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
-import { RequestDialog } from './request-dialog';
+import { PREVIEW_DEBOUNCE_MS, RequestDialog } from './request-dialog';
 
 describe('RequestDialog', () => {
   const created = { id: 'new', type: 'Vacation' } as MyLeaveRequest;
@@ -19,9 +19,24 @@ describe('RequestDialog', () => {
     { reason: 'CareLeave', maxWorkingDays: 5, period: 'WorkingYear' },
   ];
 
+  const okPreview: LeaveRequestPreview = {
+    workingDays: 5,
+    holidaysInPeriod: [],
+    availableDaysAfter: 8,
+    returnedVacationDays: 0,
+    errorCode: null,
+    needsApproval: true,
+    approverName: 'Andrea Steiner',
+    absentColleagues: [],
+  };
+
   interface Rendered {
     element: HTMLElement;
-    service: { submit: ReturnType<typeof vi.fn>; reportSickLeave: ReturnType<typeof vi.fn> };
+    service: {
+      submit: ReturnType<typeof vi.fn>;
+      reportSickLeave: ReturnType<typeof vi.fn>;
+      preview: ReturnType<typeof vi.fn>;
+    };
     leaveData: { getHolidays: ReturnType<typeof vi.fn> };
     dialogRef: { close: ReturnType<typeof vi.fn> };
     refresh: () => Promise<void>;
@@ -36,8 +51,13 @@ describe('RequestDialog', () => {
 
   async function render(
     submit: () => Observable<MyLeaveRequest> = () => of(created),
+    preview: () => Observable<LeaveRequestPreview> = () => of(okPreview),
   ): Promise<Rendered> {
-    const service = { submit: vi.fn(submit), reportSickLeave: vi.fn(() => of(created)) };
+    const service = {
+      submit: vi.fn(submit),
+      reportSickLeave: vi.fn(() => of(created)),
+      preview: vi.fn(preview),
+    };
     const leaveData = {
       getHolidays: vi.fn(() => of([])),
       getSpecialLeaveReasons: () => of(reasons),
@@ -51,6 +71,8 @@ describe('RequestDialog', () => {
         { provide: MyRequestsService, useValue: service },
         { provide: LeaveDataService, useValue: leaveData },
         { provide: MatDialogRef, useValue: dialogRef },
+        // No waiting in tests; the debounce itself is RxJS behaviour.
+        { provide: PREVIEW_DEBOUNCE_MS, useValue: 0 },
       ],
     });
 
@@ -61,9 +83,12 @@ describe('RequestDialog', () => {
       service,
       leaveData,
       dialogRef,
+      // Twice: the preview timer is only started after the first round of change detection.
       refresh: async () => {
-        await settle();
-        await fixture.whenStable();
+        for (let round = 0; round < 2; round++) {
+          await settle();
+          await fixture.whenStable();
+        }
       },
     };
   }
@@ -217,6 +242,62 @@ describe('RequestDialog', () => {
       endDate: '2026-11-03',
       comment: null,
     });
+    expect(service.submit).not.toHaveBeenCalled();
+  });
+
+  it('asks for a preview once the period is complete and shows it', async () => {
+    const { element, service, refresh } = await render();
+
+    expect(element.querySelector('lm-request-preview')?.textContent?.trim()).toBe('');
+
+    enterPeriod(element, '16.11.2026', '20.11.2026');
+    await refresh();
+
+    expect(service.preview).toHaveBeenCalledExactlyOnceWith({
+      startDate: '2026-11-16',
+      endDate: '2026-11-20',
+      type: 'Vacation',
+      specialLeaveReason: null,
+    });
+    expect(element.querySelector('lm-request-preview')?.textContent).toContain('5 Arbeitstage');
+  });
+
+  it('does not ask again when only the comment changes', async () => {
+    const { element, service, refresh } = await render();
+    enterPeriod(element, '16.11.2026', '20.11.2026');
+    await refresh();
+
+    const comment = element.querySelector<HTMLTextAreaElement>('textarea')!;
+    comment.value = 'Weihnachtsurlaub';
+    comment.dispatchEvent(new Event('input'));
+    await refresh();
+
+    expect(service.preview).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the reason before it asks for a special leave preview', async () => {
+    const { element, service, refresh } = await render();
+
+    chooseType(element, 'Sonderurlaub');
+    await refresh();
+    enterPeriod(element, '10.12.2026', '11.12.2026');
+    await refresh();
+
+    expect(service.preview).not.toHaveBeenCalled();
+  });
+
+  it('blocks sending while the preview reports a violated rule', async () => {
+    const { element, service, refresh } = await render(undefined, () =>
+      of({ ...okPreview, availableDaysAfter: -2, errorCode: 'leave_request.insufficient_balance' }),
+    );
+
+    enterPeriod(element, '16.11.2026', '20.11.2026');
+    await refresh();
+
+    expect(element.querySelector('lm-request-preview [role="alert"]')?.textContent).toContain(
+      'Dafür reicht dein Urlaubsanspruch nicht aus.',
+    );
+    expect(submitButton(element).disabled).toBe(true);
     expect(service.submit).not.toHaveBeenCalled();
   });
 

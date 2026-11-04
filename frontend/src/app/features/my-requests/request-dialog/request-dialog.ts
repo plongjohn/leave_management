@@ -1,5 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { Component, InjectionToken, computed, inject, signal } from '@angular/core';
+import { rxResource, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import {
   FormField,
   FormRoot,
@@ -18,7 +18,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { format, startOfToday } from 'date-fns';
-import { Observable, firstValueFrom, forkJoin, map } from 'rxjs';
+import {
+  Observable,
+  debounce,
+  distinctUntilChanged,
+  firstValueFrom,
+  forkJoin,
+  map,
+  timer,
+} from 'rxjs';
 import { GERMAN_DATEPICKER_INTL } from '../../../core/i18n/german-datepicker-intl';
 import { apiErrorCode } from '../../../core/http/api-error';
 import { formatDayCount } from '../../../shared/leave/leave-format';
@@ -26,11 +34,17 @@ import { leaveDayClasses } from '../../../shared/leave/leave-calendar';
 import { LeaveDataService } from '../../../shared/leave/leave-data.service';
 import { LEAVE_TYPES, LeaveType, SpecialLeaveReason } from '../../../shared/leave/leave.models';
 import { leaveTypeLabels, specialLeaveReasonLabels } from '../../../shared/leave/leave.texts';
-import { MyLeaveRequest } from '../my-requests.models';
+import { LeaveRequestDraft, MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
 import { myRequestErrorText, requestDialogTexts } from '../my-requests.texts';
+import { RequestPreview } from '../request-preview/request-preview';
 
 const texts = requestDialogTexts;
+
+/** How long the dialog waits after the last change before it asks the backend for a preview. */
+export const PREVIEW_DEBOUNCE_MS = new InjectionToken<number>('PREVIEW_DEBOUNCE_MS', {
+  factory: () => 300,
+});
 
 /** Matches LeaveRequest.CommentMaxLength of the backend. */
 const COMMENT_MAX_LENGTH = 500;
@@ -67,6 +81,7 @@ interface RequestFormModel {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    RequestPreview,
   ],
   templateUrl: './request-dialog.html',
   styleUrl: './request-dialog.scss',
@@ -77,6 +92,7 @@ export class RequestDialog {
   private readonly leaveData = inject(LeaveDataService);
   private readonly dialogRef = inject<MatDialogRef<RequestDialog, MyLeaveRequest>>(MatDialogRef);
   private readonly today = startOfToday();
+  private readonly previewDebounceMs = inject(PREVIEW_DEBOUNCE_MS);
 
   protected readonly texts = texts;
   protected readonly types = LEAVE_TYPES.map((type) => ({
@@ -179,6 +195,59 @@ export class RequestDialog {
   );
 
   protected readonly reasonsFailed = computed(() => !!this.reasons.error());
+
+  /**
+   * The request as the preview endpoint expects it, or `undefined` while the period or the reason
+   * is missing or the period is one the form already rejects. The comment is not part of it, so
+   * typing a comment causes no request.
+   */
+  private readonly draft = computed<LeaveRequestDraft | undefined>(() => {
+    const { type, specialLeaveReason, start, end } = this.model();
+    if (
+      !start ||
+      !end ||
+      end < start ||
+      (start < this.today && type !== 'SickLeave') ||
+      (type === 'SpecialLeave' && !specialLeaveReason)
+    ) {
+      return undefined;
+    }
+    return {
+      startDate: toIsoDate(start),
+      endDate: toIsoDate(end),
+      type,
+      specialLeaveReason: type === 'SpecialLeave' ? specialLeaveReason : null,
+    };
+  });
+
+  /**
+   * Waits until the employee stops changing the input, so not every click asks the backend; an
+   * incomplete draft passes at once and hides the preview. Equal drafts (e.g. after a change of
+   * the comment) are dropped.
+   */
+  private readonly settledDraft = toSignal(
+    toObservable(this.draft).pipe(
+      debounce((draft) => timer(draft ? this.previewDebounceMs : 0)),
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+    ),
+    { initialValue: undefined },
+  );
+
+  // The params read only the settled draft: the resource loads again whenever its params function
+  // runs again, even if it returns the same object.
+  private readonly preview = rxResource({
+    params: () => this.settledDraft(),
+    stream: ({ params: draft }) => this.myRequests.preview(draft),
+  });
+
+  protected readonly previewValue = computed(() =>
+    this.preview.hasValue() ? this.preview.value() : undefined,
+  );
+  protected readonly previewLoading = computed(() => this.preview.isLoading());
+  protected readonly previewFailed = computed(() => !!this.preview.error());
+
+  /** The backend would reject the request; sending makes no sense until the input changes. */
+  protected readonly blockedByRule = computed(() => !!this.previewValue()?.errorCode);
 
   /** Runs only when the form is valid; a rejection becomes a form error instead of an exception. */
   private async send(): Promise<TreeValidationResult> {

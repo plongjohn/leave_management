@@ -50,6 +50,12 @@
       <mat-error>{{ periodError() }}</mat-error>
     </mat-form-field>
 
+    <lm-request-preview
+      [preview]="previewValue()"
+      [loading]="previewLoading()"
+      [failed]="previewFailed()"
+    />
+
     <mat-form-field appearance="outline">
       <mat-label>{{ texts.commentLabel }}</mat-label>
       <textarea
@@ -75,7 +81,11 @@
 
   <mat-dialog-actions align="end">
     <button mat-button type="button" mat-dialog-close>{{ texts.cancel }}</button>
-    <button mat-flat-button type="submit" [disabled]="requestForm().submitting()">
+    <button
+      mat-flat-button
+      type="submit"
+      [disabled]="requestForm().submitting() || blockedByRule()"
+    >
       {{ type() === 'SickLeave' ? texts.submitSickLeave : texts.submit }}
     </button>
   </mat-dialog-actions>

@@ -105,6 +105,24 @@ export const requestDialogTexts = {
   sickLeaveReported: 'Deine Krankmeldung wurde gespeichert.',
 } as const;
 
+export const requestPreviewTexts = {
+  loading: 'Antrag wird geprüft …',
+  unavailable: 'Die Vorschau ist gerade nicht verfügbar. Du kannst trotzdem senden.',
+  workingDay: 'Arbeitstag',
+  workingDays: 'Arbeitstage',
+  availableAfter: (days: string) => `danach ${days} verfügbar`,
+  day: 'Tag',
+  days: 'Tage',
+  noVacationDeduction: 'kein Urlaubsabzug',
+  returnedDays: (days: string) => `${days} Urlaub bekommst du zurück`,
+  notCounted: (days: string) => `Nicht gezählt: ${days}.`,
+  halfDays: (days: string) => `Halbe Arbeitstage: ${days}.`,
+  absentColleagues: (names: string, count: number) =>
+    `${names} ${count === 1 ? 'ist' : 'sind'} in diesem Zeitraum ebenfalls abwesend.`,
+  approver: (name: string) => `${name} entscheidet über deinen Antrag.`,
+  approverHr: 'Die Personalabteilung entscheidet über deinen Antrag.',
+} as const;
+
 export const cancelTexts = {
   title: 'Antrag stornieren?',
   message: (type: string, period: string) => `${type} ${period} wird storniert.`,
