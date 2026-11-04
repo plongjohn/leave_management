@@ -3,10 +3,21 @@
   <p class="date">{{ now | date: 'fullDate' }}</p>
 </header>
 
-@if (overview.isLoading()) {
+<!-- "loading" only on the first load; a reload keeps showing the current figures. -->
+@if (overview.status() === 'loading') {
   <mat-progress-bar mode="indeterminate" [attr.aria-label]="texts.loading" />
 } @else if (overview.error()) {
   <p role="alert">{{ texts.loadError }}</p>
 } @else if (summary(); as summary) {
   <lm-overview-tiles [summary]="summary" />
 }
+
+<lm-request-table
+  [(year)]="selectedYear"
+  [years]="years"
+  [requests]="requestList()"
+  [loading]="requests.status() === 'loading'"
+  [failed]="!!requests.error()"
+  [cancellingId]="cancellingId()"
+  (cancelRequest)="cancel($event)"
+/>

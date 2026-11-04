@@ -53,6 +53,16 @@ export const requestTableTexts = {
   certificateRevoked: 'Bestätigung nicht anerkannt',
 } as const;
 
+export const cancelTexts = {
+  title: 'Antrag stornieren?',
+  message: (type: string, period: string) => `${type} ${period} wird storniert.`,
+  approvedHint: 'Die Tage bekommst du wieder gutgeschrieben.',
+  confirm: 'Stornieren',
+  dismiss: 'Behalten',
+  done: 'Der Antrag wurde storniert.',
+  close: 'OK',
+} as const;
+
 /** German texts for the error codes this feature can receive (ADR 0008). */
 export const myRequestErrorTexts: Readonly<Record<string, string>> = {
   'leave_request.starts_in_past': 'Nur eine Krankmeldung darf in der Vergangenheit beginnen.',
