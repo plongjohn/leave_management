@@ -1,0 +1,267 @@
+using LeaveManagement.Domain.Common;
+using LeaveManagement.Domain.Employees;
+using LeaveManagement.Domain.Entitlements;
+using LeaveManagement.Domain.Holidays;
+using LeaveManagement.Domain.LeaveRequests;
+using LeaveManagement.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+namespace LeaveManagement.Infrastructure.Persistence.Seeding;
+
+/// <summary>
+/// Demo data for the local development database. Registered through EF Core's seeding hooks
+/// in the Development environment only, so it never ends up in migrations or production.
+/// Each part is seeded on its own, so an existing database receives parts added later.
+/// </summary>
+internal static class DevelopmentDataSeeder
+{
+    private const int DaysPerWeek = 7;
+
+    public static void Seed(DbContext context, DevelopmentSeedOptions options)
+    {
+        if (!context.Set<Employee>().Any())
+        {
+            context.Set<Employee>().AddRange(CreateEmployees());
+            context.SaveChanges();
+        }
+
+        if (!context.Set<LeaveEntitlement>().Any())
+        {
+            AddLeaveData(context, context.Set<Employee>().ToList(), context.Set<Holiday>().ToList());
+            context.SaveChanges();
+        }
+
+        if (!context.Set<ApplicationUser>().Any())
+        {
+            context.Set<ApplicationUser>().AddRange(CreateUsers(context.Set<Employee>().ToList(), options.UserPassword));
+            context.SaveChanges();
+        }
+
+        if (!context.Set<MedicalCertificate>().Any())
+        {
+            AddSickLeaveDuringVacation(
+                context,
+                context.Set<Employee>().ToList(),
+                context.Set<Holiday>().ToList(),
+                context.Set<LeaveEntitlement>().ToList(),
+                context.Set<LeaveRequest>().ToList());
+            context.SaveChanges();
+        }
+    }
+
+    public static async Task SeedAsync(DbContext context, DevelopmentSeedOptions options, CancellationToken cancellationToken)
+    {
+        if (!await context.Set<Employee>().AnyAsync(cancellationToken))
+        {
+            context.Set<Employee>().AddRange(CreateEmployees());
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await context.Set<LeaveEntitlement>().AnyAsync(cancellationToken))
+        {
+            var employees = await context.Set<Employee>().ToListAsync(cancellationToken);
+            var holidays = await context.Set<Holiday>().ToListAsync(cancellationToken);
+            AddLeaveData(context, employees, holidays);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await context.Set<ApplicationUser>().AnyAsync(cancellationToken))
+        {
+            var employees = await context.Set<Employee>().ToListAsync(cancellationToken);
+            context.Set<ApplicationUser>().AddRange(CreateUsers(employees, options.UserPassword));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await context.Set<MedicalCertificate>().AnyAsync(cancellationToken))
+        {
+            AddSickLeaveDuringVacation(
+                context,
+                await context.Set<Employee>().ToListAsync(cancellationToken),
+                await context.Set<Holiday>().ToListAsync(cancellationToken),
+                await context.Set<LeaveEntitlement>().ToListAsync(cancellationToken),
+                await context.Set<LeaveRequest>().ToListAsync(cancellationToken));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    // One login per employee, all with the same password. The seeding hooks only get the
+    // DbContext, not Identity's UserManager, so this does what UserManager.CreateAsync does.
+    private static List<ApplicationUser> CreateUsers(List<Employee> employees, string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException(
+                "The password for the demo logins is missing. Set the environment variable " +
+                "Seed__DevelopmentPassword (see database/README.md).");
+        }
+
+        var normalizer = new UpperInvariantLookupNormalizer();
+        var passwordHasher = new PasswordHasher<ApplicationUser>();
+
+        return employees
+            .Select(employee =>
+            {
+                var user = ApplicationUser.ForEmployee(employee);
+                user.NormalizedUserName = normalizer.NormalizeName(user.UserName);
+                user.NormalizedEmail = normalizer.NormalizeEmail(user.Email);
+                user.SecurityStamp = Guid.NewGuid().ToString("N");
+                user.LockoutEnabled = true;
+                user.PasswordHash = passwordHasher.HashPassword(user, password);
+                return user;
+            })
+            .ToList();
+    }
+
+    private static List<Employee> CreateEmployees()
+    {
+        // The managing director has no manager, so HR decides on her requests.
+        var director = Employee.Create(
+            "Andrea", "Steiner", "andrea.steiner@example.at", new DateOnly(2012, 1, 2), EmployeeRole.Manager);
+        var hrLead = Employee.Create(
+            "Sabine", "Huber", "sabine.huber@example.at", new DateOnly(2015, 3, 1), EmployeeRole.Hr, director.Id);
+        var developmentLead = Employee.Create(
+            "Markus", "Gruber", "markus.gruber@example.at", new DateOnly(2017, 9, 1), EmployeeRole.Manager, director.Id);
+
+        return
+        [
+            director,
+            hrLead,
+            developmentLead,
+            Employee.Create(
+                "Lena", "Wagner", "lena.wagner@example.at", new DateOnly(2020, 2, 1), EmployeeRole.Employee, developmentLead.Id),
+            Employee.Create(
+                "Thomas", "Bauer", "thomas.bauer@example.at", new DateOnly(2021, 6, 15), EmployeeRole.Employee, developmentLead.Id),
+            Employee.Create(
+                "Julia", "Pichler", "julia.pichler@example.at", new DateOnly(2023, 1, 9), EmployeeRole.Employee, developmentLead.Id),
+            Employee.Create(
+                "Stefan", "Moser", "stefan.moser@example.at", new DateOnly(2019, 11, 4), EmployeeRole.Employee, hrLead.Id),
+        ];
+    }
+
+    // Entitlements for last, this and next year, and a few requests in every status relative to today,
+    // created through the domain so that the demo data follows the business rules.
+    private static void AddLeaveData(DbContext context, List<Employee> employees, List<Holiday> holidays)
+    {
+        var now = TimeProvider.System.GetLocalNow();
+        var today = DateOnly.FromDateTime(now.DateTime);
+        var nextMonday = today.AddDays(DaysPerWeek - (((int)today.DayOfWeek + 6) % DaysPerWeek));
+        var calendar = new WorkingDayCalendar(holidays);
+
+        var entitlements = employees
+            .SelectMany(employee => Enumerable.Range(today.Year - 1, 3)
+                .Select(year => LeaveEntitlement.Create(employee.Id, year)))
+            .ToList();
+        context.Set<LeaveEntitlement>().AddRange(entitlements);
+
+        var employeesByEmail = employees.ToDictionary(employee => employee.Email);
+        var andrea = employeesByEmail["andrea.steiner@example.at"];
+        var markus = employeesByEmail["markus.gruber@example.at"];
+        var lena = employeesByEmail["lena.wagner@example.at"];
+        var thomas = employeesByEmail["thomas.bauer@example.at"];
+        var julia = employeesByEmail["julia.pichler@example.at"];
+        var stefan = employeesByEmail["stefan.moser@example.at"];
+
+        var requests = new List<LeaveRequest>();
+
+        LeaveRequest Submit(Employee employee, DateOnly start, DateOnly end, LeaveType type, SpecialLeaveReason? reason = null)
+        {
+            var submissionContext = new SubmissionContext(
+                calendar,
+                [.. requests.Where(request => request.EmployeeId == employee.Id)],
+                [.. entitlements.Where(entitlement => entitlement.EmployeeId == employee.Id)],
+                today,
+                now);
+            var request = LeaveRequest.Submit(
+                employee, new LeaveRequestDraft(new DateRange(start, end), type, SpecialLeaveReason: reason), submissionContext);
+            requests.Add(request);
+            return request;
+        }
+
+        Submit(lena, nextMonday.AddDays(14), nextMonday.AddDays(18), LeaveType.Vacation).Approve(markus, lena, now);
+        Submit(lena, nextMonday.AddDays(35), nextMonday.AddDays(35), LeaveType.TimeOffInLieu);
+        Submit(thomas, nextMonday.AddDays(28), nextMonday.AddDays(39), LeaveType.Vacation);
+        Submit(julia, nextMonday.AddDays(21), nextMonday.AddDays(23), LeaveType.Vacation).Reject(markus, julia, now);
+        Submit(julia, nextMonday.AddDays(7), nextMonday.AddDays(8), LeaveType.SpecialLeave, SpecialLeaveReason.Relocation);
+        Submit(stefan, nextMonday.AddDays(-14), nextMonday.AddDays(-12), LeaveType.SickLeave);
+        Submit(andrea, nextMonday.AddDays(42), nextMonday.AddDays(46), LeaveType.Vacation);
+
+        context.Set<LeaveRequest>().AddRange(requests);
+    }
+
+    // Phase 6: two past vacations with sick leave and a certificate, one of them revoked by HR, so the
+    // returned days and the certificate review can be tried out. A part of its own, so databases seeded
+    // before phase 6 receive it, too.
+    private static void AddSickLeaveDuringVacation(
+        DbContext context,
+        List<Employee> employees,
+        List<Holiday> holidays,
+        List<LeaveEntitlement> entitlements,
+        List<LeaveRequest> existingRequests)
+    {
+        var now = TimeProvider.System.GetLocalNow();
+        var today = DateOnly.FromDateTime(now.DateTime);
+        var thisMonday = today.AddDays(-(((int)today.DayOfWeek + 6) % DaysPerWeek));
+        var calendar = new WorkingDayCalendar(holidays);
+
+        var employeesByEmail = employees.ToDictionary(employee => employee.Email);
+        var markus = employeesByEmail["markus.gruber@example.at"];
+        var sabine = employeesByEmail["sabine.huber@example.at"];
+        var thomas = employeesByEmail["thomas.bauer@example.at"];
+        var julia = employeesByEmail["julia.pichler@example.at"];
+
+        var requests = new List<LeaveRequest>();
+
+        // The vacations were requested two weeks before they started, so the start was not in the past.
+        LeaveRequest Submit(Employee employee, DateOnly start, DateOnly end, LeaveType type, DateOnly submittedOn, bool hasCertificate = false)
+        {
+            var submissionContext = new SubmissionContext(
+                calendar,
+                [.. existingRequests.Concat(requests).Where(request => request.EmployeeId == employee.Id)],
+                [.. entitlements.Where(entitlement => entitlement.EmployeeId == employee.Id)],
+                submittedOn,
+                now);
+            var request = LeaveRequest.Submit(
+                employee,
+                new LeaveRequestDraft(new DateRange(start, end), type, HasMedicalCertificate: hasCertificate),
+                submissionContext);
+            requests.Add(request);
+            return request;
+        }
+
+        // Thomas: two weeks of vacation eight weeks ago, sick from Tuesday to the following Monday.
+        var thomasStart = thisMonday.AddDays(-8 * DaysPerWeek);
+        Submit(thomas, thomasStart, thomasStart.AddDays(11), LeaveType.Vacation, thomasStart.AddDays(-14))
+            .Approve(markus, thomas, now);
+        var thomasSick = Submit(thomas, thomasStart.AddDays(1), thomasStart.AddDays(7), LeaveType.SickLeave, thomasStart.AddDays(1), hasCertificate: true);
+
+        // Julia: one week of vacation five weeks ago, sick Monday to Thursday; HR could not read the certificate.
+        var juliaStart = thisMonday.AddDays(-5 * DaysPerWeek);
+        Submit(julia, juliaStart, juliaStart.AddDays(4), LeaveType.Vacation, juliaStart.AddDays(-14))
+            .Approve(markus, julia, now);
+        var juliaSick = Submit(julia, juliaStart, juliaStart.AddDays(3), LeaveType.SickLeave, juliaStart, hasCertificate: true);
+        juliaSick.RevokeMedicalCertificate(sabine, "Attest nicht lesbar, bitte neu einreichen.", now);
+
+        context.Set<LeaveRequest>().AddRange(requests);
+        context.Set<MedicalCertificate>().AddRange(
+            MedicalCertificate.Create(thomasSick, "attest-thomas-bauer.pdf", "application/pdf", DemoCertificatePdf, now),
+            MedicalCertificate.Create(juliaSick, "attest-julia-pichler.pdf", "application/pdf", DemoCertificatePdf, now));
+    }
+
+    /// <summary>A one-page PDF that says "Demo-Attest", small enough to keep in code.</summary>
+    private static readonly byte[] DemoCertificatePdf =
+    [
+        .. """
+        %PDF-1.4
+        1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj
+        2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj
+        3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 300 120] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>> endobj
+        4 0 obj <</Length 49>> stream
+        BT /F1 18 Tf 40 55 Td (Demo-Attest) Tj ET
+        endstream endobj
+        5 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj
+        trailer <</Root 1 0 R>>
+        %%EOF
+        """u8,
+    ];
+}

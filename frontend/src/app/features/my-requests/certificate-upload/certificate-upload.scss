@@ -1,0 +1,104 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+p {
+  margin: 0;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 88px;
+  padding: 12px;
+  border: 2px dashed var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-low);
+  text-align: center;
+  cursor: pointer;
+
+  // The real file input stays focusable for the keyboard, but invisible.
+  input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  &:has(input:focus-visible) {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.dropzone--active {
+  border-color: var(--mat-sys-primary);
+  background: var(--mat-sys-primary-container);
+}
+
+.dropzone--error {
+  border-color: var(--mat-sys-error);
+}
+
+.link {
+  color: var(--mat-sys-primary);
+  font-weight: 500;
+}
+
+.hint,
+.file-size {
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px 6px 14px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+
+  > mat-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.file-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error {
+  font-size: 0.75rem;
+  color: var(--mat-sys-error);
+}

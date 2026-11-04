@@ -1,0 +1,36 @@
+<div class="heading">
+  <h2 class="title">{{ texts.title }}</h2>
+  <p class="subtitle">{{ texts.subtitle }}</p>
+</div>
+
+@for (row of rows(); track row.year.year) {
+  <section class="year">
+    <div class="year-heading">
+      <h3 class="year-title">{{ texts.year(row.year.year) }}</h3>
+      <span class="expires">{{ texts.expires }} {{ row.year.expiresOn | date: 'dd.MM.yyyy' }}</span>
+    </div>
+
+    <div class="bar" role="img" [attr.aria-label]="row.barLabel">
+      <span class="bar-approved" [style.width]="row.approvedWidth"></span>
+      <span class="bar-pending" [style.width]="row.pendingWidth"></span>
+    </div>
+
+    <p class="figures">
+      <span>{{ row.year.entitledDays | number: '1.0-1' }} {{ texts.entitled }}</span>
+      <span>{{ row.year.approvedDays | number: '1.0-1' }} {{ texts.approved }}</span>
+      <span>{{ row.year.pendingDays | number: '1.0-1' }} {{ texts.pending }}</span>
+      <span class="remaining" [class.remaining--negative]="row.year.remainingDays < 0">
+        {{ row.year.remainingDays | number: '1.0-1' }} {{ texts.remaining }}
+      </span>
+    </p>
+  </section>
+} @empty {
+  <p class="subtitle">{{ texts.empty }}</p>
+}
+
+@if (rows().length > 0) {
+  <p class="legend" aria-hidden="true">
+    <span><span class="swatch bar-approved"></span>{{ texts.approved }}</span>
+    <span><span class="swatch bar-pending"></span>{{ texts.pending }}</span>
+  </p>
+}

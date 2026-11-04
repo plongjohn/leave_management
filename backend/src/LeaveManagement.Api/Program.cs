@@ -1,0 +1,64 @@
+using System.Text.Json.Serialization;
+using FluentValidation;
+using LeaveManagement.Api.Auth;
+using LeaveManagement.Api.Common;
+using LeaveManagement.Api.Employees;
+using LeaveManagement.Api.Holidays;
+using LeaveManagement.Api.LeaveRequests;
+using LeaveManagement.Infrastructure;
+using LeaveManagement.Infrastructure.Persistence;
+using LeaveManagement.Infrastructure.Persistence.Seeding;
+using Scalar.AspNetCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("LeaveManagement")
+    ?? throw new InvalidOperationException(
+        "Connection string 'LeaveManagement' is missing. Set the environment variable " +
+        "ConnectionStrings__LeaveManagement (see database/README.md).");
+
+var developmentSeed = builder.Environment.IsDevelopment()
+    ? new DevelopmentSeedOptions(builder.Configuration["Seed:DevelopmentPassword"])
+    : null;
+
+builder.Services.AddInfrastructure(connectionString, developmentSeed);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<CompanyClock>();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>(includeInternalTypes: true);
+builder.Services.AddAuthFeature(builder.Configuration);
+builder.Services.AddEmployeeFeature();
+builder.Services.AddHolidayFeature();
+builder.Services.AddLeaveRequestFeature();
+
+// Enums as names ("Hr"), not numbers, in requests and responses.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
+builder.Services.AddHealthChecks().AddDbContextCheck<LeaveManagementDbContext>();
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
+
+// Everything below needs a signed-in user unless marked AllowAnonymous (fallback policy).
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
+}
+
+app.MapHealthChecks("/health").AllowAnonymous();
+app.MapAuthEndpoints();
+app.MapEmployeeEndpoints();
+app.MapHolidayEndpoints();
+app.MapLeaveRequestEndpoints();
+
+app.Run();

@@ -1,0 +1,107 @@
+<div class="page">
+  <section class="hero" aria-hidden="true">
+    <svg
+      class="landscape"
+      viewBox="0 0 640 760"
+      preserveAspectRatio="xMidYMax slice"
+      focusable="false"
+    >
+      <rect class="sky" x="0" y="0" width="640" height="760" />
+      <circle class="sun" cx="430" cy="230" r="70" />
+      <path class="mountains" d="M0 520 L150 330 L260 450 L380 290 L560 520 L640 470 V760 H0 Z" />
+      <path
+        class="hills-back"
+        d="M0 600 C120 540 230 560 330 600 C430 640 540 610 640 570 V760 H0 Z"
+      />
+      <path
+        class="hills-front"
+        d="M0 680 C150 640 300 660 420 690 C520 715 590 700 640 690 V760 H0 Z"
+      />
+      <path class="edge" d="M570 0 C640 220 520 470 600 760 H640 V0 Z" />
+    </svg>
+    <div class="hero-text">
+      <p class="hero-title">{{ texts.heroTitle }}</p>
+      <p class="hero-subtitle">{{ texts.heroSubtitle }}</p>
+    </div>
+  </section>
+
+  <main class="panel">
+    <form class="form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true"><mat-icon>event_available</mat-icon></span>
+        <h1 class="brand-name">{{ texts.appName }}</h1>
+        <p class="brand-subtitle">{{ texts.subtitle }}</p>
+      </header>
+
+      @if (failure(); as failure) {
+        <p class="alert" role="alert">
+          <mat-icon aria-hidden="true">error</mat-icon>
+          <span>{{ texts.failures[failure] }}</span>
+        </p>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>{{ texts.email }}</mat-label>
+        <mat-icon matPrefix aria-hidden="true">mail</mat-icon>
+        <input
+          matInput
+          type="email"
+          formControlName="email"
+          autocomplete="username"
+          [placeholder]="texts.emailPlaceholder"
+        />
+        @if (form.controls.email.hasError('required')) {
+          <mat-error>{{ texts.emailRequired }}</mat-error>
+        } @else if (form.controls.email.hasError('email')) {
+          <mat-error>{{ texts.emailInvalid }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>{{ texts.password }}</mat-label>
+        <mat-icon matPrefix aria-hidden="true">lock</mat-icon>
+        <input
+          matInput
+          [type]="passwordVisible() ? 'text' : 'password'"
+          formControlName="password"
+          autocomplete="current-password"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          [attr.aria-label]="passwordVisible() ? texts.hidePassword : texts.showPassword"
+          [attr.aria-pressed]="passwordVisible()"
+          (click)="togglePasswordVisibility()"
+        >
+          <mat-icon aria-hidden="true">{{
+            passwordVisible() ? 'visibility_off' : 'visibility'
+          }}</mat-icon>
+        </button>
+        <mat-error>{{ texts.passwordRequired }}</mat-error>
+      </mat-form-field>
+
+      <div class="options">
+        <mat-checkbox formControlName="rememberMe">{{ texts.rememberMe }}</mat-checkbox>
+        <button
+          type="button"
+          class="link-button"
+          [attr.aria-expanded]="forgotPasswordHintVisible()"
+          (click)="toggleForgotPasswordHint()"
+        >
+          {{ texts.forgotPassword }}
+        </button>
+      </div>
+
+      @if (forgotPasswordHintVisible()) {
+        <p class="hint" role="status">{{ texts.forgotPasswordHint }}</p>
+      }
+
+      <button mat-flat-button type="submit" class="submit" [disabled]="submitting()">
+        {{ submitting() ? texts.submitting : texts.submit }}
+      </button>
+
+      <p class="footnote">{{ texts.noAccount }}</p>
+    </form>
+  </main>
+</div>

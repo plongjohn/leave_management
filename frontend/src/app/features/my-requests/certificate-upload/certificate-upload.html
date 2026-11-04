@@ -1,0 +1,56 @@
+<p class="label" id="certificate-label">
+  {{ texts.label }}
+  @if (required()) {
+    <span aria-hidden="true">*</span>
+  } @else {
+    <span class="optional">{{ texts.optional }}</span>
+  }
+</p>
+
+@if (value(); as file) {
+  <div class="file">
+    <mat-icon aria-hidden="true">description</mat-icon>
+    <span class="file-text">
+      <span class="file-name">{{ file.name }}</span>
+      <span class="file-size">{{ size() }}</span>
+    </span>
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="texts.remove(file.name)"
+      (click)="value.set(null)"
+    >
+      <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+  </div>
+} @else {
+  <!-- The label opens the file dialog; dropping a file onto it works as well. -->
+  <label
+    class="dropzone"
+    [class.dropzone--active]="dragging()"
+    [class.dropzone--error]="error()"
+    (dragover)="dragOver($event)"
+    (dragleave)="dragging.set(false)"
+    (drop)="drop($event)"
+  >
+    <input
+      #fileInput
+      type="file"
+      [accept]="accept"
+      [required]="required()"
+      aria-labelledby="certificate-label"
+      [attr.aria-invalid]="!!error()"
+      [attr.aria-describedby]="error() ? 'certificate-error' : 'certificate-hint'"
+      (change)="choose(fileInput)"
+    />
+    <mat-icon aria-hidden="true">upload</mat-icon>
+    <span>
+      {{ texts.choose }} <span class="link">{{ texts.chooseLink }}</span>
+    </span>
+    <span class="hint" id="certificate-hint">{{ texts.hint }}</span>
+  </label>
+}
+
+@if (error(); as error) {
+  <p class="error" id="certificate-error" role="alert">{{ error }}</p>
+}

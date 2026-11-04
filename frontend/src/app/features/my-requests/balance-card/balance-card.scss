@@ -1,0 +1,97 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+  padding: 20px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  background: var(--mat-sys-surface-container-lowest);
+}
+
+p,
+h2,
+h3 {
+  margin: 0;
+}
+
+.heading,
+.year {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.year {
+  gap: 8px;
+}
+
+.title {
+  font: var(--mat-sys-title-medium);
+  font-size: 1.125rem;
+}
+
+.subtitle,
+.expires,
+.figures,
+.legend {
+  font-size: 0.8125rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.year-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.year-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container-highest);
+}
+
+// Taken in the accent green, requested in a light green – as in the screen preview.
+.bar-approved {
+  background: var(--mat-sys-primary);
+}
+
+.bar-pending {
+  background: var(--mat-sys-primary-fixed-dim);
+}
+
+.figures,
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.remaining {
+  font-weight: 500;
+  color: var(--mat-sys-on-surface);
+}
+
+.remaining--negative {
+  color: var(--mat-sys-error);
+}
+
+.legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}

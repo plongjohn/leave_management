@@ -1,0 +1,68 @@
+// Colour theme "graphite with green accent" (design input: docs/internal/design-input/login).
+// Material's primary palette is the green accent (links, focus, checkboxes); main actions are
+// graphite instead of green, set with the button overrides below.
+@use '@angular/material' as mat;
+@use './theme-colors' as theme;
+
+html {
+  height: 100%;
+  @include mat.theme(
+    (
+      color: (
+        primary: theme.$primary-palette,
+        tertiary: theme.$tertiary-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+
+  // App-wide colours outside Material's system: the graphite of main actions and the
+  // illustration on the login page.
+  --lm-ink: #1c1c1e;
+  --lm-on-ink: #ffffff;
+  --lm-hero-sky: #1c1f1e;
+  --lm-hero-sun: #e6ece8;
+  --lm-hero-mountains: #33463d;
+  --lm-hero-hills-back: #3e7a5b;
+  --lm-hero-hills-front: #7dba98;
+  --lm-hero-text: #ffffff;
+  --lm-hero-text-muted: #c9d3cd;
+
+  @include mat.button-overrides(
+    (
+      filled-container-color: var(--lm-ink),
+      filled-label-text-color: var(--lm-on-ink),
+    )
+  );
+}
+
+body {
+  // Light theme only for now.
+  color-scheme: light;
+
+  // Default background, font and text colours from Angular Material's system variables
+  // (https://material.angular.dev/guide/system-variables).
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  margin: 0;
+  height: 100%;
+}
+
+// Days without work in the date pickers (leave-calendar.ts). Global because the calendar opens
+// in an overlay outside the component. Selected days keep Material's selection colours.
+.lm-calendar-weekend .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.lm-calendar-holiday .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  color: var(--mat-sys-error);
+  font-weight: 700;
+}
+
+.lm-calendar-half-day .mat-calendar-body-cell-content {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}

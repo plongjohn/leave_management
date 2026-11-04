@@ -1,0 +1,116 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using LeaveManagement.Api.Auth;
+using LeaveManagement.Domain.Employees;
+using LeaveManagement.Infrastructure.Identity;
+using LeaveManagement.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace LeaveManagement.Api.Tests.Infrastructure;
+
+/// <summary>Resets the database before each test and offers helpers to arrange data and sign in.</summary>
+public abstract class ApiTestBase(ApiTestFixture fixture) : IAsyncLifetime
+{
+    /// <summary>Satisfies the password policy (at least 12 characters).</summary>
+    protected const string Password = "correct horse battery staple";
+
+    protected HttpClient Client { get; } = fixture.Factory.CreateHttpsClient();
+
+    protected LeaveManagementApiFactory Factory => fixture.Factory;
+
+    protected static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
+
+    /// <summary>The company's date for the business rules, see <see cref="LeaveManagementApiFactory.CompanyTime"/>.</summary>
+    protected static DateOnly Today => TestLeaveRequests.Today;
+
+    public virtual async ValueTask InitializeAsync()
+    {
+        await fixture.Database.ResetAsync();
+
+        // The host is shared, so a test that moves the clock must not affect the next one.
+        fixture.Factory.CompanyTime.UtcNow = LeaveManagementApiFactory.DefaultCompanyNow;
+    }
+
+    public virtual ValueTask DisposeAsync()
+    {
+        Client.Dispose();
+        GC.SuppressFinalize(this);
+        return ValueTask.CompletedTask;
+    }
+
+    protected async Task ArrangeAsync(Action<LeaveManagementDbContext> arrange)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<LeaveManagementDbContext>();
+        arrange(dbContext);
+        await dbContext.SaveChangesAsync(CancellationToken);
+    }
+
+    /// <summary>A new scope with its own DbContext, e.g. to simulate a second concurrent request.</summary>
+    protected AsyncServiceScope CreateScope() => fixture.Factory.Services.CreateAsyncScope();
+
+    /// <summary>Saves the employee together with a login, created through Identity like in production.</summary>
+    protected async Task<ApplicationUser> CreateUserAsync(Employee employee, string password = Password)
+    {
+        await ArrangeAsync(dbContext => dbContext.Employees.Add(employee));
+        return await CreateLoginAsync(employee, password);
+    }
+
+    /// <summary>Creates a login for an employee that is already saved.</summary>
+    protected async Task<ApplicationUser> CreateLoginAsync(Employee employee, string password = Password)
+    {
+        await using var scope = CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = ApplicationUser.ForEmployee(employee);
+        var result = await userManager.CreateAsync(user, password);
+        Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
+
+        return user;
+    }
+
+    protected async Task<HttpResponseMessage> LoginAsync(string email, string password = Password)
+    {
+        return await Client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, password), CancellationToken);
+    }
+
+    /// <summary>Saves the employee with a login, signs in and sends the access token with every request.</summary>
+    protected async Task SignInAsync(Employee employee)
+    {
+        await CreateUserAsync(employee);
+        await UseAccessTokenOfAsync(employee);
+    }
+
+    /// <summary>Signs in as an employee that is already saved, e.g. the manager of the signed-in employee.</summary>
+    protected async Task SignInAsExistingAsync(Employee employee)
+    {
+        await CreateLoginAsync(employee);
+        await UseAccessTokenOfAsync(employee);
+    }
+
+    private async Task UseAccessTokenOfAsync(Employee employee)
+    {
+        var response = await LoginAsync(employee.Email);
+        response.EnsureSuccessStatusCode();
+
+        var token = await response.Content.ReadFromJsonAsync<AccessTokenResponse>(CancellationToken);
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
+    }
+
+    /// <summary>
+    /// Saves the manager, signs the employee in and then saves the employee's data: in this order,
+    /// because the employee references the manager and the data references the employee.
+    /// </summary>
+    protected async Task SignInWithManagerAsync(
+        Employee manager,
+        Employee employee,
+        Action<LeaveManagementDbContext>? arrangeAfterwards = null)
+    {
+        await ArrangeAsync(dbContext => dbContext.Employees.Add(manager));
+        await SignInAsync(employee);
+        if (arrangeAfterwards is not null)
+        {
+            await ArrangeAsync(arrangeAfterwards);
+        }
+    }
+}

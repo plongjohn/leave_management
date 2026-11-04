@@ -1,0 +1,103 @@
+<div class="heading">
+  <div class="heading-text">
+    <h2 mat-dialog-title>{{ texts.title }}</h2>
+    <p class="subtitle">{{ texts.subtitle }}</p>
+  </div>
+  <!-- mat-dialog-close sets aria-label itself; [attr.aria-label] would be overwritten. -->
+  <button mat-icon-button type="button" mat-dialog-close [aria-label]="texts.close">
+    <mat-icon aria-hidden="true">close</mat-icon>
+  </button>
+</div>
+
+<!-- formRoot prevents the browser's submit and runs the form's submission action when valid. -->
+<form [formRoot]="requestForm">
+  <mat-dialog-content class="content">
+    <!-- Native radio buttons: arrow keys and screen readers work like in any radio group. -->
+    <fieldset class="types">
+      <legend class="field-label">{{ texts.typeLabel }}</legend>
+      @for (option of types; track option.type) {
+        <label class="type-tile">
+          <input type="radio" [formField]="requestForm.type" [value]="option.type" />
+          <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
+          <span>{{ option.label }}</span>
+        </label>
+      }
+    </fieldset>
+
+    @if (!requestForm.specialLeaveReason().hidden()) {
+      <mat-form-field appearance="outline">
+        <mat-label>{{ texts.reasonLabel }}</mat-label>
+        <mat-select [formField]="requestForm.specialLeaveReason">
+          @for (option of reasonOptions(); track option.reason) {
+            <mat-option [value]="option.reason">{{ option.label }}</mat-option>
+          }
+        </mat-select>
+        @if (reasonsFailed()) {
+          <mat-hint class="hint-error">{{ texts.reasonsLoadError }}</mat-hint>
+        }
+        <mat-error>{{ requestForm.specialLeaveReason().errors()[0]?.message }}</mat-error>
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>{{ texts.periodLabel }}</mat-label>
+      <mat-date-range-input [rangePicker]="picker" [min]="minDate()">
+        <input matStartDate [formField]="requestForm.start" [placeholder]="texts.start" />
+        <input matEndDate [formField]="requestForm.end" [placeholder]="texts.end" />
+      </mat-date-range-input>
+      <mat-datepicker-toggle matIconSuffix [for]="picker" />
+      <mat-date-range-picker #picker [dateClass]="dayClasses()" />
+      <mat-hint>{{ texts.periodHint }}</mat-hint>
+      <mat-error>{{ periodError() }}</mat-error>
+    </mat-form-field>
+
+    <lm-request-preview
+      [preview]="displayedPreview()"
+      [loading]="previewLoading()"
+      [failed]="previewFailed()"
+    />
+
+    @if (!requestForm.certificate().hidden()) {
+      @if (certificateRequired()) {
+        <p class="warning">
+          <mat-icon aria-hidden="true">warning</mat-icon>
+          <span>{{ certificateTexts.duringVacation(returnedDays()) }}</span>
+        </p>
+      }
+      <lm-certificate-upload [formField]="requestForm.certificate" />
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>{{ texts.commentLabel }}</mat-label>
+      <textarea
+        matInput
+        [formField]="requestForm.comment"
+        rows="3"
+        [placeholder]="texts.commentPlaceholder[type()]"
+      ></textarea>
+      <mat-error>{{ requestForm.comment().errors()[0]?.message }}</mat-error>
+    </mat-form-field>
+
+    @if (type() === 'SickLeave') {
+      <p class="info">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        {{ texts.sickLeaveInfo }}
+      </p>
+    }
+
+    @if (serverError(); as message) {
+      <p class="failure" role="alert">{{ message }}</p>
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close>{{ texts.cancel }}</button>
+    <button
+      mat-flat-button
+      type="submit"
+      [disabled]="requestForm().submitting() || blockedByRule()"
+    >
+      {{ type() === 'SickLeave' ? texts.submitSickLeave : texts.submit }}
+    </button>
+  </mat-dialog-actions>
+</form>

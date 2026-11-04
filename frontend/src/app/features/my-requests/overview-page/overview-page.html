@@ -1,0 +1,36 @@
+<header class="header">
+  <div class="greeting">
+    <h1 class="title">{{ texts.greeting }} {{ user()?.firstName }}</h1>
+    <p class="date">{{ now | date: 'fullDate' }}</p>
+  </div>
+  <button mat-flat-button type="button" (click)="openRequestDialog()">
+    <mat-icon aria-hidden="true">add</mat-icon>
+    {{ dialogTexts.open }}
+  </button>
+</header>
+
+<!-- "loading" only on the first load; a reload keeps showing the current figures. -->
+@if (overview.status() === 'loading') {
+  <mat-progress-bar mode="indeterminate" [attr.aria-label]="texts.loading" />
+} @else if (overview.error()) {
+  <p role="alert">{{ texts.loadError }}</p>
+} @else if (summary(); as summary) {
+  <lm-overview-tiles [summary]="summary" />
+}
+
+<div class="columns">
+  <lm-request-table
+    class="requests"
+    [(year)]="selectedYear"
+    [years]="years"
+    [requests]="requestList()"
+    [loading]="requests.status() === 'loading'"
+    [failed]="!!requests.error()"
+    [cancellingId]="cancellingId()"
+    (cancelRequest)="cancel($event)"
+  />
+
+  @if (balance(); as balance) {
+    <lm-balance-card class="balance" [balance]="balance" />
+  }
+</div>

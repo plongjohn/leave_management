@@ -1,0 +1,76 @@
+<div class="heading">
+  <h2 class="title">{{ texts.title }}</h2>
+  <mat-button-toggle-group
+    hideSingleSelectionIndicator
+    [attr.aria-label]="texts.yearFilter"
+    [value]="year()"
+    (change)="year.set($event.value)"
+  >
+    @for (option of years(); track option) {
+      <mat-button-toggle [value]="option">{{ option }}</mat-button-toggle>
+    }
+  </mat-button-toggle-group>
+</div>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" [attr.aria-label]="texts.loading" />
+} @else if (failed()) {
+  <p class="message" role="alert">{{ texts.loadError }}</p>
+} @else if (rows().length === 0) {
+  <p class="message">{{ texts.empty(year()) }}</p>
+} @else {
+  <div class="scroll">
+    <table mat-table [dataSource]="rows()">
+      <ng-container matColumnDef="period">
+        <th mat-header-cell *matHeaderCellDef>{{ texts.columns.period }}</th>
+        <td mat-cell *matCellDef="let row" class="period">{{ row.period }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="type">
+        <th mat-header-cell *matHeaderCellDef>{{ texts.columns.type }}</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="type">{{ row.type }}</span>
+          @if (row.note) {
+            <span class="note">{{ row.note }}</span>
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="workingDays">
+        <th mat-header-cell *matHeaderCellDef class="number">{{ texts.columns.workingDays }}</th>
+        <td mat-cell *matCellDef="let row" class="number">
+          {{ row.request.workingDays | number: '1.0-1' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>{{ texts.columns.status }}</th>
+        <td mat-cell *matCellDef="let row">
+          <lm-leave-status-chip [status]="row.request.status" [type]="row.request.type" />
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>
+          <span class="visually-hidden">{{ texts.columns.actions }}</span>
+        </th>
+        <td mat-cell *matCellDef="let row" class="actions">
+          @if (row.request.canBeCancelled) {
+            <button
+              mat-button
+              type="button"
+              [attr.aria-label]="texts.cancelLabel(row.period)"
+              [disabled]="cancellingId() === row.request.id"
+              (click)="cancelRequest.emit(row.request)"
+            >
+              {{ texts.cancel }}
+            </button>
+          }
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  </div>
+}

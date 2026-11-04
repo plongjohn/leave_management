@@ -1,0 +1,42 @@
+<!-- Announced politely, so screen readers hear the new figures after a change of the period. -->
+<div aria-live="polite">
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" [attr.aria-label]="texts.loading" />
+  } @else if (failed()) {
+    <p class="note">{{ texts.unavailable }}</p>
+  } @else if (preview()) {
+    <section class="summary" [class.summary--error]="error()">
+      <p class="figures">
+        <span class="days">{{ workingDays() }}</span>
+        <span class="balance">{{ balance() }}</span>
+      </p>
+      @for (note of holidayNotes(); track note) {
+        <p class="note">{{ note }}</p>
+      }
+      @if (error(); as error) {
+        <p class="error" role="alert">
+          <mat-icon aria-hidden="true">warning</mat-icon>
+          {{ error }}
+        </p>
+      }
+    </section>
+
+    @if (colleagues(); as colleagues) {
+      <section class="colleagues">
+        <span class="avatars" aria-hidden="true">
+          @for (initials of colleagues.initials; track $index) {
+            <span class="avatar">{{ initials }}</span>
+          }
+        </span>
+        <span>{{ colleagues.text }}</span>
+      </section>
+    }
+
+    @if (approver(); as approver) {
+      <p class="info">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        {{ approver }}
+      </p>
+    }
+  }
+</div>
