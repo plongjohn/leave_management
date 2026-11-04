@@ -53,6 +53,20 @@ export const requestTableTexts = {
   certificateRevoked: 'Bestätigung nicht anerkannt',
 } as const;
 
+export const balanceCardTexts = {
+  title: 'Urlaubsanspruch',
+  subtitle: 'Tage werden immer vom ältesten Anspruch genommen.',
+  empty: 'Für dich ist noch kein Urlaubsanspruch angelegt.',
+  year: (year: number) => `Anspruch ${year}`,
+  expires: 'verfällt',
+  entitled: 'Anspruch',
+  approved: 'genommen',
+  pending: 'beantragt',
+  remaining: 'übrig',
+  barLabel: (year: number, approved: string, pending: string, remaining: string) =>
+    `${year}: ${approved} genommen, ${pending} beantragt, ${remaining} übrig`,
+} as const;
+
 export const cancelTexts = {
   title: 'Antrag stornieren?',
   message: (type: string, period: string) => `${type} ${period} wird storniert.`,

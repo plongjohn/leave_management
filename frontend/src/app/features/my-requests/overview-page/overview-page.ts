@@ -11,6 +11,7 @@ import { apiErrorCode } from '../../../core/http/api-error';
 import { openConfirmDialog } from '../../../shared/confirm-dialog/confirm-dialog';
 import { formatPeriod } from '../../../shared/leave/leave-format';
 import { leaveTypeLabels } from '../../../shared/leave/leave.texts';
+import { BalanceCard } from '../balance-card/balance-card';
 import { MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
 import { cancelTexts, myRequestErrorText, overviewTexts } from '../my-requests.texts';
@@ -21,7 +22,7 @@ import { RequestTable } from '../request-table/request-table';
 /** Start page of every employee: key figures, own requests and balance. */
 @Component({
   selector: 'lm-overview-page',
-  imports: [DatePipe, MatProgressBarModule, OverviewTiles, RequestTable],
+  imports: [BalanceCard, DatePipe, MatProgressBarModule, OverviewTiles, RequestTable],
   templateUrl: './overview-page.html',
   styleUrl: './overview-page.scss',
 })
@@ -55,6 +56,10 @@ export class OverviewPage {
     const { balance, thisYear, nextYear } = this.overview.value();
     return summarizeOverview(balance, [...thisYear, ...nextYear], format(this.now, 'yyyy-MM-dd'));
   });
+
+  protected readonly balance = computed(() =>
+    this.overview.hasValue() ? this.overview.value().balance : undefined,
+  );
 
   protected readonly years = [-1, 0, 1].map((offset) => this.now.getFullYear() + offset);
   protected readonly selectedYear = signal(this.now.getFullYear());

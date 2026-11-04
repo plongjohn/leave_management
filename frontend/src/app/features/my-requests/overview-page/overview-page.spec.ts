@@ -137,6 +137,14 @@ describe('OverviewPage', () => {
     expect(element.querySelector('lm-overview-tiles')).toBeNull();
   });
 
+  it('shows the balance next to the requests', async () => {
+    const { element } = await render();
+
+    expect(element.querySelector('.columns lm-balance-card')?.textContent).toContain(
+      'Urlaubsanspruch',
+    );
+  });
+
   it('lists the requests of this year and loads another year when it is selected', async () => {
     const { element, service, refresh } = await render();
 

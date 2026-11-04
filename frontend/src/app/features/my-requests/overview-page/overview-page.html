@@ -12,12 +12,19 @@
   <lm-overview-tiles [summary]="summary" />
 }
 
-<lm-request-table
-  [(year)]="selectedYear"
-  [years]="years"
-  [requests]="requestList()"
-  [loading]="requests.status() === 'loading'"
-  [failed]="!!requests.error()"
-  [cancellingId]="cancellingId()"
-  (cancelRequest)="cancel($event)"
-/>
+<div class="columns">
+  <lm-request-table
+    class="requests"
+    [(year)]="selectedYear"
+    [years]="years"
+    [requests]="requestList()"
+    [loading]="requests.status() === 'loading'"
+    [failed]="!!requests.error()"
+    [cancellingId]="cancellingId()"
+    (cancelRequest)="cancel($event)"
+  />
+
+  @if (balance(); as balance) {
+    <lm-balance-card class="balance" [balance]="balance" />
+  }
+</div>
