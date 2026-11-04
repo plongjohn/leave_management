@@ -1,0 +1,70 @@
+:host {
+  display: block;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  background: var(--mat-sys-surface-container-lowest);
+  overflow: hidden;
+}
+
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 12px;
+}
+
+.title {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  font-size: 1.125rem;
+}
+
+.message {
+  margin: 0;
+  padding: 8px 20px 24px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// On narrow screens the table scrolls inside the card instead of widening the page.
+.scroll {
+  overflow-x: auto;
+}
+
+table {
+  min-width: 560px;
+  background: transparent;
+}
+
+.period {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.type,
+.note {
+  display: block;
+}
+
+.note {
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.number {
+  text-align: right;
+}
+
+.actions {
+  text-align: right;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

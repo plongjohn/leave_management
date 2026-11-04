@@ -31,6 +31,28 @@ export const overviewTexts = {
   },
 } as const;
 
+export const requestTableTexts = {
+  title: 'Meine Anträge',
+  yearFilter: 'Jahr',
+  loading: 'Anträge werden geladen …',
+  loadError: 'Die Anträge konnten nicht geladen werden.',
+  empty: (year: number) => `Keine Anträge in ${year}.`,
+  columns: {
+    period: 'Zeitraum',
+    type: 'Art',
+    workingDays: 'Arbeitstage',
+    status: 'Status',
+    actions: 'Aktion',
+  },
+  cancel: 'Stornieren',
+  cancelLabel: (period: string) => `Antrag ${period} stornieren`,
+  returnedDays: (days: string) => `davon ${days} wegen Krankheit zurück`,
+  day: 'Tag',
+  days: 'Tage',
+  withCertificate: 'mit ärztlicher Bestätigung',
+  certificateRevoked: 'Bestätigung nicht anerkannt',
+} as const;
+
 /** German texts for the error codes this feature can receive (ADR 0008). */
 export const myRequestErrorTexts: Readonly<Record<string, string>> = {
   'leave_request.starts_in_past': 'Nur eine Krankmeldung darf in der Vergangenheit beginnen.',
