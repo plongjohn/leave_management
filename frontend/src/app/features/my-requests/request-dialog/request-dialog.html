@@ -8,24 +8,25 @@
   </button>
 </div>
 
-<form [formGroup]="form" (ngSubmit)="submit()">
+<!-- formRoot prevents the browser's submit and runs the form's submission action when valid. -->
+<form [formRoot]="requestForm">
   <mat-dialog-content class="content">
     <!-- Native radio buttons: arrow keys and screen readers work like in any radio group. -->
     <fieldset class="types">
       <legend class="field-label">{{ texts.typeLabel }}</legend>
       @for (option of types; track option.type) {
         <label class="type-tile">
-          <input type="radio" formControlName="type" [value]="option.type" />
+          <input type="radio" [formField]="requestForm.type" [value]="option.type" />
           <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
           <span>{{ option.label }}</span>
         </label>
       }
     </fieldset>
 
-    @if (type() === 'SpecialLeave') {
+    @if (!requestForm.specialLeaveReason().hidden()) {
       <mat-form-field appearance="outline">
         <mat-label>{{ texts.reasonLabel }}</mat-label>
-        <mat-select formControlName="specialLeaveReason">
+        <mat-select [formField]="requestForm.specialLeaveReason">
           @for (option of reasonOptions(); track option.reason) {
             <mat-option [value]="option.reason">{{ option.label }}</mat-option>
           }
@@ -33,15 +34,15 @@
         @if (reasonsFailed()) {
           <mat-hint class="hint-error">{{ texts.reasonsLoadError }}</mat-hint>
         }
-        <mat-error>{{ texts.reasonRequired }}</mat-error>
+        <mat-error>{{ requestForm.specialLeaveReason().errors()[0]?.message }}</mat-error>
       </mat-form-field>
     }
 
     <mat-form-field appearance="outline">
       <mat-label>{{ texts.periodLabel }}</mat-label>
       <mat-date-range-input [rangePicker]="picker" [min]="minDate()">
-        <input matStartDate formControlName="start" [placeholder]="texts.start" />
-        <input matEndDate formControlName="end" [placeholder]="texts.end" />
+        <input matStartDate [formField]="requestForm.start" [placeholder]="texts.start" />
+        <input matEndDate [formField]="requestForm.end" [placeholder]="texts.end" />
       </mat-date-range-input>
       <mat-datepicker-toggle matIconSuffix [for]="picker" />
       <mat-date-range-picker #picker [dateClass]="dayClasses()" />
@@ -53,11 +54,11 @@
       <mat-label>{{ texts.commentLabel }}</mat-label>
       <textarea
         matInput
-        formControlName="comment"
+        [formField]="requestForm.comment"
         rows="3"
         [placeholder]="texts.commentPlaceholder[type()]"
       ></textarea>
-      <mat-error>{{ texts.commentTooLong(commentMaxLength) }}</mat-error>
+      <mat-error>{{ requestForm.comment().errors()[0]?.message }}</mat-error>
     </mat-form-field>
 
     @if (type() === 'SickLeave') {
@@ -67,14 +68,14 @@
       </p>
     }
 
-    @if (failure(); as failure) {
-      <p class="failure" role="alert">{{ failure }}</p>
+    @if (serverError(); as message) {
+      <p class="failure" role="alert">{{ message }}</p>
     }
   </mat-dialog-content>
 
   <mat-dialog-actions align="end">
     <button mat-button type="button" mat-dialog-close>{{ texts.cancel }}</button>
-    <button mat-flat-button type="submit" [disabled]="submitting()">
+    <button mat-flat-button type="submit" [disabled]="requestForm().submitting()">
       {{ type() === 'SickLeave' ? texts.submitSickLeave : texts.submit }}
     </button>
   </mat-dialog-actions>

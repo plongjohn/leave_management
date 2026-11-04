@@ -1,16 +1,25 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { rxResource } from '@angular/core/rxjs-interop';
+import {
+  FormField,
+  FormRoot,
+  TreeValidationResult,
+  form,
+  hidden,
+  maxLength,
+  required,
+  validate,
+} from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { GERMAN_DATEPICKER_INTL } from '../../../core/i18n/german-datepicker-intl';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { format, startOfToday } from 'date-fns';
-import { Observable, finalize, forkJoin, map } from 'rxjs';
+import { Observable, firstValueFrom, forkJoin, map } from 'rxjs';
+import { GERMAN_DATEPICKER_INTL } from '../../../core/i18n/german-datepicker-intl';
 import { apiErrorCode } from '../../../core/http/api-error';
 import { formatDayCount } from '../../../shared/leave/leave-format';
 import { leaveDayClasses } from '../../../shared/leave/leave-calendar';
@@ -33,13 +42,24 @@ const TYPE_ICONS: Record<LeaveType, string> = {
   SpecialLeave: 'redeem',
 };
 
+/** What the employee enters; the form is built around this model (Signal Forms, ADR 0009). */
+interface RequestFormModel {
+  type: LeaveType;
+  specialLeaveReason: SpecialLeaveReason | null;
+  start: Date | null;
+  end: Date | null;
+  comment: string;
+}
+
 /**
  * "Abwesenheit eintragen": type, reason for special leave, period and comment. Closes with the
- * created request. The rules are checked by the backend only (coding guidelines).
+ * created request. The checks here only help while typing; the backend decides (coding guidelines).
  */
 @Component({
   selector: 'lm-request-dialog',
   imports: [
+    FormField,
+    FormRoot,
     MatButtonModule,
     MatDatepickerModule,
     MatDialogModule,
@@ -47,7 +67,6 @@ const TYPE_ICONS: Record<LeaveType, string> = {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
-    ReactiveFormsModule,
   ],
   templateUrl: './request-dialog.html',
   styleUrl: './request-dialog.scss',
@@ -60,31 +79,77 @@ export class RequestDialog {
   private readonly today = startOfToday();
 
   protected readonly texts = texts;
-  protected readonly commentMaxLength = COMMENT_MAX_LENGTH;
   protected readonly types = LEAVE_TYPES.map((type) => ({
     type,
     label: leaveTypeLabels[type],
     icon: TYPE_ICONS[type],
   }));
 
-  protected readonly form = inject(NonNullableFormBuilder).group({
-    type: ['Vacation' as LeaveType],
-    // Enabled for special leave only; a disabled control is neither validated nor sent.
-    specialLeaveReason: [
-      { value: null as SpecialLeaveReason | null, disabled: true },
-      Validators.required,
-    ],
-    start: [null as Date | null, Validators.required],
-    end: [null as Date | null, Validators.required],
-    comment: ['', Validators.maxLength(COMMENT_MAX_LENGTH)],
+  private readonly model = signal<RequestFormModel>({
+    type: 'Vacation',
+    specialLeaveReason: null,
+    start: null,
+    end: null,
+    comment: '',
   });
 
-  protected readonly type = toSignal(this.form.controls.type.valueChanges, {
-    initialValue: this.form.controls.type.value,
-  });
+  protected readonly requestForm = form(
+    this.model,
+    (path) => {
+      // A hidden field does not count for validity, so "required" only applies to special leave.
+      hidden(path.specialLeaveReason, {
+        when: ({ valueOf }) => valueOf(path.type) !== 'SpecialLeave',
+      });
+      required(path.specialLeaveReason, { message: texts.reasonRequired });
 
-  /** Only sick leave may lie in the past; the picker helps, the backend decides. */
+      // The picker reports unreadable input as an empty date, which "required" catches.
+      required(path.start, { message: texts.periodRequired });
+      required(path.end, { message: texts.periodRequired });
+      validate(path.start, ({ value, valueOf }) => {
+        const start = value();
+        return start && start < this.today && valueOf(path.type) !== 'SickLeave'
+          ? { kind: 'in_past', message: texts.periodInPast }
+          : undefined;
+      });
+      validate(path.end, ({ value, valueOf }) => {
+        const start = valueOf(path.start);
+        const end = value();
+        return start && end && end < start
+          ? { kind: 'end_before_start', message: texts.periodOrder }
+          : undefined;
+      });
+
+      maxLength(path.comment, COMMENT_MAX_LENGTH, {
+        message: texts.commentTooLong(COMMENT_MAX_LENGTH),
+      });
+    },
+    { submission: { action: () => this.send() } },
+  );
+
+  protected readonly type = computed(() => this.model().type);
+
+  /** Only sick leave may lie in the past; the calendar greys out earlier days for the rest. */
   protected readonly minDate = computed(() => (this.type() === 'SickLeave' ? null : this.today));
+
+  /**
+   * One message for the period; start and end are two fields of one form field. The date inputs
+   * add their own errors (e.g. `matDatepickerMin`) without a text, so the first error with a text
+   * from the schema above wins.
+   */
+  protected readonly periodError = computed(() => {
+    const errors = [...this.requestForm.start().errors(), ...this.requestForm.end().errors()];
+    return (
+      errors.find((error) => error.message)?.message ?? (errors.length ? texts.periodInvalid : '')
+    );
+  });
+
+  /** The rule the backend rejected the request with, as German text. */
+  protected readonly serverError = computed(
+    () =>
+      this.requestForm()
+        .errors()
+        .find((error) => error.kind === 'server')?.message,
+  );
 
   /** Last, this and next year: sick leave may lie in the past, vacation is planned ahead. */
   private readonly holidays = rxResource({
@@ -115,56 +180,19 @@ export class RequestDialog {
 
   protected readonly reasonsFailed = computed(() => !!this.reasons.error());
 
-  protected readonly submitting = signal(false);
-  protected readonly failure = signal<string | null>(null);
-
-  constructor() {
-    this.form.controls.type.valueChanges.pipe(takeUntilDestroyed()).subscribe((type) => {
-      const reason = this.form.controls.specialLeaveReason;
-      if (type === 'SpecialLeave') {
-        reason.enable();
-      } else {
-        reason.reset(null);
-        reason.disable();
-      }
-    });
-  }
-
-  /** One message for the period field; the date range input reports errors on both inputs. */
-  protected periodError(): string {
-    const { start, end } = this.form.controls;
-    const errors = { ...start.errors, ...end.errors };
-    if ('matDatepickerParse' in errors) {
-      return texts.periodInvalid;
+  /** Runs only when the form is valid; a rejection becomes a form error instead of an exception. */
+  private async send(): Promise<TreeValidationResult> {
+    try {
+      this.dialogRef.close(await firstValueFrom(this.request()));
+      return undefined;
+    } catch (error) {
+      return { kind: 'server', message: myRequestErrorText(apiErrorCode(error)) };
     }
-    if ('matStartDateInvalid' in errors || 'matEndDateInvalid' in errors) {
-      return texts.periodOrder;
-    }
-    if ('matDatepickerMin' in errors) {
-      return texts.periodInPast;
-    }
-    return texts.periodRequired;
-  }
-
-  protected submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
-
-    this.submitting.set(true);
-    this.failure.set(null);
-    this.send()
-      .pipe(finalize(() => this.submitting.set(false)))
-      .subscribe({
-        next: (created) => this.dialogRef.close(created),
-        error: (error: unknown) => this.failure.set(myRequestErrorText(apiErrorCode(error))),
-      });
   }
 
   /** Sick leave goes as multipart form to its own endpoint (ADR 0008). */
-  private send(): Observable<MyLeaveRequest> {
-    const { type, specialLeaveReason, start, end, comment } = this.form.getRawValue();
+  private request(): Observable<MyLeaveRequest> {
+    const { type, specialLeaveReason, start, end, comment } = this.model();
     const period = { startDate: toIsoDate(start!), endDate: toIsoDate(end!) };
     const trimmedComment = comment.trim() || null;
 

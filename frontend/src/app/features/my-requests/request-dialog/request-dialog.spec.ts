@@ -138,7 +138,7 @@ describe('RequestDialog', () => {
     await refresh();
 
     expect(element.querySelector('mat-error')?.textContent).toContain(
-      'Bitte wähle Beginn und Ende.',
+      'Bitte gib Beginn und Ende an (TT.MM.JJJJ).',
     );
     expect(service.submit).not.toHaveBeenCalled();
   });
@@ -152,6 +152,19 @@ describe('RequestDialog', () => {
 
     expect(element.querySelector('mat-error')?.textContent).toContain(
       'Nur eine Krankmeldung darf in der Vergangenheit beginnen.',
+    );
+    expect(service.submit).not.toHaveBeenCalled();
+  });
+
+  it('does not accept an end before the start', async () => {
+    const { element, service, refresh } = await render();
+
+    enterPeriod(element, '20.11.2026', '16.11.2026');
+    submitButton(element).click();
+    await refresh();
+
+    expect(element.querySelector('mat-error')?.textContent).toContain(
+      'Das Ende darf nicht vor dem Beginn liegen.',
     );
     expect(service.submit).not.toHaveBeenCalled();
   });
