@@ -9,6 +9,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { provideAppLocale } from '../../../core/i18n/locale.providers';
 import { LeaveBalance, MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
+import { RequestDialog } from '../request-dialog/request-dialog';
 import { OverviewPage } from './overview-page';
 
 describe('OverviewPage', () => {
@@ -82,7 +83,12 @@ describe('OverviewPage', () => {
       ),
       cancel: vi.fn(setup.cancel ?? (() => of(undefined))),
     };
-    const dialog = { open: vi.fn(() => ({ afterClosed: () => of(setup.confirmed ?? true) })) };
+    // The confirm dialog by default; tests of the request dialog set their own result.
+    const dialog = {
+      open: vi.fn((): { afterClosed: () => Observable<unknown> } => ({
+        afterClosed: () => of(setup.confirmed ?? true),
+      })),
+    };
     const snackBar = { open: vi.fn() };
 
     TestBed.configureTestingModule({
@@ -104,6 +110,10 @@ describe('OverviewPage', () => {
       snackBar,
       refresh: () => fixture.whenStable(),
     };
+  }
+
+  function requestButton(element: HTMLElement): HTMLButtonElement {
+    return element.querySelector<HTMLButtonElement>('header button')!;
   }
 
   function cancelButton(element: HTMLElement): HTMLButtonElement {
@@ -181,6 +191,33 @@ describe('OverviewPage', () => {
       duration: 6000,
     });
     expect(service.getRequests).toHaveBeenCalledWith(2026);
+  });
+
+  it('opens the request dialog and reloads after a request was sent', async () => {
+    const { element, service, dialog, snackBar, refresh } = await render();
+    dialog.open.mockReturnValueOnce({ afterClosed: () => of(januaryVacation) });
+
+    service.getRequests.mockClear();
+    requestButton(element).click();
+    await refresh();
+
+    expect(dialog.open).toHaveBeenCalledWith(RequestDialog, expect.anything());
+    expect(snackBar.open).toHaveBeenCalledWith('Dein Antrag wurde gesendet.', 'OK', {
+      duration: 6000,
+    });
+    expect(service.getRequests).toHaveBeenCalledWith(2026);
+  });
+
+  it('changes nothing when the request dialog is closed without a request', async () => {
+    const { element, service, dialog, snackBar, refresh } = await render();
+    dialog.open.mockReturnValueOnce({ afterClosed: () => of(undefined) });
+
+    service.getRequests.mockClear();
+    requestButton(element).click();
+    await refresh();
+
+    expect(snackBar.open).not.toHaveBeenCalled();
+    expect(service.getRequests).not.toHaveBeenCalled();
   });
 
   it('keeps the request when the user does not confirm', async () => {

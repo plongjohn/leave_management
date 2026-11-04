@@ -1,3 +1,4 @@
+import { LeaveType } from '../../shared/leave/leave.models';
 import { CONCURRENCY_CONFLICT } from '../../core/http/api-error';
 
 export const overviewTexts = {
@@ -65,6 +66,43 @@ export const balanceCardTexts = {
   remaining: 'übrig',
   barLabel: (year: number, approved: string, pending: string, remaining: string) =>
     `${year}: ${approved} genommen, ${pending} beantragt, ${remaining} übrig`,
+} as const;
+
+export const requestDialogTexts = {
+  open: 'Abwesenheit eintragen',
+  title: 'Abwesenheit eintragen',
+  subtitle: 'Wähle die Art und den Zeitraum.',
+  close: 'Schließen',
+  typeLabel: 'Art der Abwesenheit',
+  reasonLabel: 'Anlass',
+  reasonRequired: 'Bitte wähle den Anlass.',
+  reasonsLoadError: 'Die Anlässe konnten nicht geladen werden.',
+  reasonOption: (label: string, days: string, perWorkingYear: boolean) =>
+    `${label} (max. ${days}${perWorkingYear ? ' pro Arbeitsjahr' : ''})`,
+  workingDay: 'Arbeitstag',
+  workingDays: 'Arbeitstage',
+  periodLabel: 'Zeitraum',
+  start: 'Von',
+  end: 'Bis',
+  periodHint: 'Wochenenden und Feiertage sind im Kalender markiert.',
+  periodRequired: 'Bitte wähle Beginn und Ende.',
+  periodInvalid: 'Bitte gib gültige Daten im Format TT.MM.JJJJ ein.',
+  periodOrder: 'Das Ende darf nicht vor dem Beginn liegen.',
+  periodInPast: 'Nur eine Krankmeldung darf in der Vergangenheit beginnen.',
+  commentTooLong: (max: number) => `Höchstens ${max} Zeichen.`,
+  commentLabel: 'Kommentar (optional)',
+  commentPlaceholder: {
+    Vacation: 'z. B. Weihnachtsurlaub',
+    TimeOffInLieu: 'z. B. Ausgleich für Release-Wochenende',
+    SickLeave: 'Optionaler Hinweis für die Personalabteilung',
+    SpecialLeave: 'z. B. neue Adresse',
+  } satisfies Record<LeaveType, string>,
+  sickLeaveInfo: 'Krankmeldungen gelten sofort, eine Genehmigung ist nicht nötig.',
+  cancel: 'Abbrechen',
+  submit: 'Antrag senden',
+  submitSickLeave: 'Krankmeldung senden',
+  submitted: 'Dein Antrag wurde gesendet.',
+  sickLeaveReported: 'Deine Krankmeldung wurde gespeichert.',
 } as const;
 
 export const cancelTexts = {

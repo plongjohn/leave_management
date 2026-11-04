@@ -1,7 +1,9 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { format } from 'date-fns';
@@ -14,15 +16,29 @@ import { leaveTypeLabels } from '../../../shared/leave/leave.texts';
 import { BalanceCard } from '../balance-card/balance-card';
 import { MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
-import { cancelTexts, myRequestErrorText, overviewTexts } from '../my-requests.texts';
+import {
+  cancelTexts,
+  myRequestErrorText,
+  overviewTexts,
+  requestDialogTexts,
+} from '../my-requests.texts';
 import { summarizeOverview } from '../overview-summary';
 import { OverviewTiles } from '../overview-tiles/overview-tiles';
+import { openRequestDialog } from '../request-dialog/request-dialog';
 import { RequestTable } from '../request-table/request-table';
 
 /** Start page of every employee: key figures, own requests and balance. */
 @Component({
   selector: 'lm-overview-page',
-  imports: [BalanceCard, DatePipe, MatProgressBarModule, OverviewTiles, RequestTable],
+  imports: [
+    BalanceCard,
+    DatePipe,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    OverviewTiles,
+    RequestTable,
+  ],
   templateUrl: './overview-page.html',
   styleUrl: './overview-page.scss',
 })
@@ -32,6 +48,7 @@ export class OverviewPage {
   private readonly snackBar = inject(MatSnackBar);
 
   protected readonly texts = overviewTexts;
+  protected readonly dialogTexts = requestDialogTexts;
   protected readonly user = inject(AuthService).currentUser;
   protected readonly now = new Date();
 
@@ -75,6 +92,19 @@ export class OverviewPage {
   );
 
   protected readonly cancellingId = signal<string | null>(null);
+
+  protected openRequestDialog(): void {
+    openRequestDialog(this.dialog)
+      .pipe(filter((created) => created !== undefined))
+      .subscribe((created) => {
+        this.notify(
+          created.type === 'SickLeave'
+            ? requestDialogTexts.sickLeaveReported
+            : requestDialogTexts.submitted,
+        );
+        this.reload();
+      });
+  }
 
   protected cancel(request: MyLeaveRequest): void {
     openConfirmDialog(this.dialog, {

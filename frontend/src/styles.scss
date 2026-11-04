@@ -50,3 +50,19 @@ body {
   margin: 0;
   height: 100%;
 }
+
+// Days without work in the date pickers (leave-calendar.ts). Global because the calendar opens
+// in an overlay outside the component. Selected days keep Material's selection colours.
+.lm-calendar-weekend .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.lm-calendar-holiday .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  color: var(--mat-sys-error);
+  font-weight: 700;
+}
+
+.lm-calendar-half-day .mat-calendar-body-cell-content {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
