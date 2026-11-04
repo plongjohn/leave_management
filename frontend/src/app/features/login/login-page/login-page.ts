@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -24,7 +24,6 @@ import { LoginFailure, loginTexts } from '../login.texts';
   ],
   templateUrl: './login-page.html',
   styleUrl: './login-page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginPage {
   private readonly auth = inject(AuthService);

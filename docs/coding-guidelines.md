@@ -103,6 +103,8 @@ LeaveManagement.Domain         → (nothing)
 ## Frontend (Angular)
 
 - Standalone components, signals for component state, new control flow (`@if`, `@for`).
+- Change detection is `OnPush` by default since Angular 22 – do not set `changeDetection`;
+  `Eager` only with a comment explaining why.
 - **Feature folders** (`features/my-requests`, `features/approvals`, …) plus `core/` for
   app-wide services (auth, HTTP interceptors, layout) and `shared/` for reusable UI.
 - Components are presentational where possible; HTTP calls live in services.

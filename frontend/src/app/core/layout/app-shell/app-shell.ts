@@ -1,5 +1,5 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { Component, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -30,7 +30,6 @@ export const COMPACT_LAYOUT_QUERY = '(max-width: 959.98px)';
   ],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppShell {
   private readonly router = inject(Router);

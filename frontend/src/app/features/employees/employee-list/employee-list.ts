@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
@@ -11,7 +11,6 @@ import { employeeTexts } from '../employee.texts';
   imports: [DatePipe, MatProgressBarModule, MatTableModule],
   templateUrl: './employee-list.html',
   styleUrl: './employee-list.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EmployeeList {
   private readonly employeeService = inject(EmployeeService);
