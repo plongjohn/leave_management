@@ -1,0 +1,24 @@
+<section class="tile tile--primary" [class.tile--overdrawn]="summary().availableDays < 0">
+  <h2 class="label">{{ texts.available }}</h2>
+  <p class="value">
+    {{ summary().availableDays | number: '1.0-1' }}
+    <span class="unit">{{ availableUnit() }}</span>
+  </p>
+  <p class="hint">{{ availableHint() }}</p>
+</section>
+
+<section class="tile">
+  <h2 class="label">{{ texts.openRequests }}</h2>
+  <p class="value">{{ summary().pendingRequests }}</p>
+  <p class="hint">{{ openRequestsHint() }}</p>
+</section>
+
+<section class="tile">
+  <h2 class="label">{{ texts.nextAbsence }}</h2>
+  @if (nextAbsence(); as next) {
+    <p class="value value--text">{{ next.period }}</p>
+    <p class="hint">{{ next.hint }}</p>
+  } @else {
+    <p class="value value--text">{{ texts.noNextAbsence }}</p>
+  }
+</section>

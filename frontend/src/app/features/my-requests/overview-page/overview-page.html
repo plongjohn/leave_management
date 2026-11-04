@@ -1,0 +1,12 @@
+<header class="header">
+  <h1 class="title">{{ texts.greeting }} {{ user()?.firstName }}</h1>
+  <p class="date">{{ now | date: 'fullDate' }}</p>
+</header>
+
+@if (overview.isLoading()) {
+  <mat-progress-bar mode="indeterminate" [attr.aria-label]="texts.loading" />
+} @else if (overview.error()) {
+  <p role="alert">{{ texts.loadError }}</p>
+} @else if (summary(); as summary) {
+  <lm-overview-tiles [summary]="summary" />
+}

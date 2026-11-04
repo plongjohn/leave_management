@@ -1,5 +1,36 @@
 import { CONCURRENCY_CONFLICT } from '../../core/http/api-error';
 
+export const overviewTexts = {
+  pageTitle: 'Übersicht – Urlaubsverwaltung',
+  greeting: 'Hallo',
+  loading: 'Übersicht wird geladen …',
+  loadError: 'Die Übersicht konnte nicht geladen werden.',
+  tiles: {
+    available: 'Urlaub verfügbar',
+    day: 'Tag',
+    days: 'Tage',
+    afterPending: (days: string) => `nach Abzug von ${days}`,
+    pendingDay: 'beantragtem Tag',
+    pendingDays: 'beantragten Tagen',
+    nothingPending: 'keine Tage beantragt',
+    overdrawn: 'mehr Urlaub verplant als vorhanden',
+    openRequests: 'Offene Anträge',
+    noOpenRequests: 'nichts offen',
+    waitingFor: (name: string) => `wartet auf ${name}`,
+    waitingForHr: 'wartet auf die Personalabteilung',
+    waitingForSeveral: 'warten auf Entscheidung',
+    nextAbsence: 'Nächste Abwesenheit',
+    noNextAbsence: 'keine geplant',
+    requested: 'beantragt',
+    workingDay: 'Arbeitstag',
+    workingDays: 'Arbeitstage',
+    startsToday: 'ab heute',
+    startsTomorrow: 'morgen',
+    startsIn: (days: number) => `in ${days} Tagen`,
+    running: 'läuft gerade',
+  },
+} as const;
+
 /** German texts for the error codes this feature can receive (ADR 0008). */
 export const myRequestErrorTexts: Readonly<Record<string, string>> = {
   'leave_request.starts_in_past': 'Nur eine Krankmeldung darf in der Vergangenheit beginnen.',

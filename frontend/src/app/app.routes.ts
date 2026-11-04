@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guards';
 import { loginTexts } from './features/login/login.texts';
+import { overviewTexts } from './features/my-requests/my-requests.texts';
 
 export const routes: Routes = [
   {
@@ -15,7 +16,13 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./core/layout/app-shell/app-shell').then((m) => m.AppShell),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'employees' },
+      { path: '', pathMatch: 'full', redirectTo: 'overview' },
+      {
+        path: 'overview',
+        title: overviewTexts.pageTitle,
+        loadComponent: () =>
+          import('./features/my-requests/overview-page/overview-page').then((m) => m.OverviewPage),
+      },
       {
         path: 'employees',
         loadComponent: () =>

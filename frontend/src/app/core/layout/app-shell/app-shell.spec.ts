@@ -52,9 +52,10 @@ describe('AppShell', () => {
 
     const links = [...element.querySelectorAll('nav a')];
     expect(links.map((link) => link.querySelector('[matListItemTitle]')?.textContent)).toEqual([
+      'Übersicht',
       'Mitarbeiter',
     ]);
-    expect(links[0].getAttribute('href')).toBe('/employees');
+    expect(links[0].getAttribute('href')).toBe('/overview');
   });
 
   it('keeps the navigation open beside the content on wide screens', async () => {

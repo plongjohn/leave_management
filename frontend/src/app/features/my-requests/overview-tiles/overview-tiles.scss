@@ -1,0 +1,56 @@
+:host {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-lowest);
+}
+
+// The most important figure in graphite, like the main actions.
+.tile--primary {
+  border-color: var(--lm-ink);
+  background: var(--lm-ink);
+  color: var(--lm-on-ink);
+
+  .label,
+  .hint {
+    color: var(--lm-hero-text-muted);
+  }
+}
+
+.tile--overdrawn .value {
+  color: var(--mat-sys-error-container);
+}
+
+.label,
+.hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.value {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.value--text {
+  font-size: 1.375rem;
+  line-height: 1.3;
+}
+
+.unit {
+  font-size: 1rem;
+  font-weight: 500;
+}

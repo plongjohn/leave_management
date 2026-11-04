@@ -13,6 +13,7 @@ export interface NavItem {
 
 /** Entries in display order. Each feature adds its entry together with its route. */
 export const navItems: readonly NavItem[] = [
+  { path: '/overview', label: layoutTexts.nav.overview, icon: 'home' },
   { path: '/employees', label: layoutTexts.nav.employees, icon: 'group' },
 ];
 

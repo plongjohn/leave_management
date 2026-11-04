@@ -6,6 +6,7 @@ export const layoutTexts = {
   mainNavigation: 'Hauptnavigation',
   toggleNavigation: 'Navigation ein- oder ausblenden',
   nav: {
+    overview: 'Übersicht',
     employees: 'Mitarbeiter',
   },
   roles: {
