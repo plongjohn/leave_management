@@ -30,3 +30,13 @@ export interface Holiday {
   name: string;
   kind: HolidayKind;
 }
+
+/** Matches SpecialLeaveLimitPeriod. */
+export type SpecialLeaveLimitPeriod = 'Occasion' | 'WorkingYear';
+
+/** Matches SpecialLeaveReasonResponse: a reason with its limit (ADR 0007). */
+export interface SpecialLeaveReasonLimit {
+  reason: SpecialLeaveReason;
+  maxWorkingDays: number;
+  period: SpecialLeaveLimitPeriod;
+}

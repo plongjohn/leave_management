@@ -20,10 +20,10 @@ export const sickLeaveReportedLabel = 'Gemeldet';
 export const specialLeaveReasonLabels = {
   OwnWedding: 'Eigene Hochzeit',
   BirthOfChild: 'Geburt eines Kindes',
-  DeathOfCloseRelative: 'Tod von Ehe- oder Lebenspartner, Kind oder Elternteil',
-  DeathOfRelative: 'Tod von Geschwistern, Schwiegereltern oder Großeltern',
-  WeddingOfChildOrSibling: 'Hochzeit eines Kindes oder Geschwisters',
-  Relocation: 'Wohnungswechsel',
+  DeathOfCloseRelative: 'Tod naher Angehöriger',
+  DeathOfRelative: 'Tod sonstiger Angehöriger',
+  WeddingOfChildOrSibling: 'Hochzeit Kind/Geschwister',
+  Relocation: 'Übersiedlung',
   CareLeave: 'Pflegefreistellung',
 } as const satisfies Record<SpecialLeaveReason, string>;
 

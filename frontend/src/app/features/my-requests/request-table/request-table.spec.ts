@@ -98,7 +98,7 @@ describe('RequestTable', () => {
   });
 
   it.each([
-    [{ type: 'SpecialLeave', specialLeaveReason: 'Relocation' }, 'Sonderurlaub | Wohnungswechsel'],
+    [{ type: 'SpecialLeave', specialLeaveReason: 'Relocation' }, 'Sonderurlaub | Übersiedlung'],
     [{ returnedDays: 2 }, 'Urlaub | davon 2 Tage wegen Krankheit zurück'],
     [
       { type: 'SickLeave', hasMedicalCertificate: true },
