@@ -328,13 +328,17 @@ function toIsoDate(date: Date): string {
   return format(date, 'yyyy-MM-dd');
 }
 
-/** Opens the dialog; emits the created request, or nothing when the dialog was closed without. */
+/** Opens the dialog; emits the created request, or `undefined` when it was closed without. */
 export function openRequestDialog(dialog: MatDialog): Observable<MyLeaveRequest | undefined> {
   return dialog
-    .open<RequestDialog, void, MyLeaveRequest>(RequestDialog, {
+    .open<RequestDialog, void, MyLeaveRequest | ''>(RequestDialog, {
       width: '560px',
       maxWidth: 'calc(100vw - 32px)',
       autoFocus: 'first-tabbable',
     })
-    .afterClosed();
+    .afterClosed()
+    .pipe(
+      // `mat-dialog-close` without a value ("Abbrechen", the X) closes with an empty string.
+      map((result) => result || undefined),
+    );
 }

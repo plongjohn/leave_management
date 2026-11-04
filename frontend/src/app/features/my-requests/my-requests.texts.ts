@@ -118,7 +118,8 @@ export const requestPreviewTexts = {
   noVacationDeduction: 'kein Urlaubsabzug',
   returnedDays: (days: string) => `${days} Urlaub bekommst du zurück`,
   notCounted: (days: string) => `Nicht gezählt: ${days}.`,
-  halfDays: (days: string) => `Halbe Arbeitstage: ${days}.`,
+  // The dates already end with a dot ("24.12. und 31.12.").
+  halfDays: (days: string) => `Halbe Arbeitstage: ${days}`,
   absentColleagues: (names: string, count: number) =>
     `${names} ${count === 1 ? 'ist' : 'sind'} in diesem Zeitraum ebenfalls abwesend.`,
   approver: (name: string) => `${name} entscheidet über deinen Antrag.`,

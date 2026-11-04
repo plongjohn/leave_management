@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, throwError } from 'rxjs';
 import { provideAppLocale } from '../../../core/i18n/locale.providers';
 import { LeaveDataService } from '../../../shared/leave/leave-data.service';
@@ -9,7 +9,7 @@ import { SpecialLeaveReasonLimit } from '../../../shared/leave/leave.models';
 import { settle } from '../../../testing/settle';
 import { LeaveRequestPreview, MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
-import { PREVIEW_DEBOUNCE_MS, RequestDialog } from './request-dialog';
+import { PREVIEW_DEBOUNCE_MS, RequestDialog, openRequestDialog } from './request-dialog';
 
 describe('RequestDialog', () => {
   const created = { id: 'new', type: 'Vacation' } as MyLeaveRequest;
@@ -400,5 +400,41 @@ describe('RequestDialog', () => {
     );
     expect(dialogRef.close).not.toHaveBeenCalled();
     expect(submitButton(element).disabled).toBe(false);
+  });
+});
+
+describe('openRequestDialog', () => {
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      providers: [
+        provideAppLocale(),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+        { provide: MyRequestsService, useValue: { preview: () => of() } },
+        {
+          provide: LeaveDataService,
+          useValue: { getHolidays: () => of([]), getSpecialLeaveReasons: () => of([]) },
+        },
+      ],
+    }),
+  );
+
+  afterEach(() => TestBed.inject(MatDialog).closeAll());
+
+  // Found in the browser: "Abbrechen" and the X close with an empty string, which the overview
+  // took for a created request.
+  it.each(['Abbrechen', 'Schließen'])('emits undefined when closed with "%s"', async (label) => {
+    const results: unknown[] = [];
+    openRequestDialog(TestBed.inject(MatDialog)).subscribe((result) => results.push(result));
+    await settle();
+
+    [...document.querySelectorAll<HTMLButtonElement>('lm-request-dialog button')]
+      .find(
+        (button) =>
+          button.textContent?.trim() === label || button.getAttribute('aria-label') === label,
+      )!
+      .click();
+    await settle();
+
+    expect(results).toEqual([undefined]);
   });
 });

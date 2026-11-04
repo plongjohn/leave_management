@@ -47,7 +47,7 @@ describe('RequestPreview', () => {
     expect(text(element.querySelector('.balance'))).toBe('danach 1 Tag verfügbar');
     expect([...element.querySelectorAll('.note')].map(text)).toEqual([
       'Nicht gezählt: 25.12. Christtag, 26.12. Stefanitag.',
-      'Halbe Arbeitstage: 24.12. und 31.12..',
+      'Halbe Arbeitstage: 24.12. und 31.12.',
     ]);
   });
 

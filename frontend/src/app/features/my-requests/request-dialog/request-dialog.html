@@ -3,7 +3,8 @@
     <h2 mat-dialog-title>{{ texts.title }}</h2>
     <p class="subtitle">{{ texts.subtitle }}</p>
   </div>
-  <button mat-icon-button type="button" mat-dialog-close [attr.aria-label]="texts.close">
+  <!-- mat-dialog-close sets aria-label itself; [attr.aria-label] would be overwritten. -->
+  <button mat-icon-button type="button" mat-dialog-close [aria-label]="texts.close">
     <mat-icon aria-hidden="true">close</mat-icon>
   </button>
 </div>
