@@ -118,7 +118,7 @@ public sealed class PreviewLeaveRequestTests : ApiTestBase
     }
 
     [Fact]
-    public async Task Preview_LongSickLeaveDuringVacationWithoutCertificate_ReturnsErrorCode()
+    public async Task Preview_LongSickLeaveDuringVacationWithoutCertificate_ReturnsErrorCodeAndReturnedDays()
     {
         await SignInWithManagerAsync(_manager, _employee, dbContext =>
         {
@@ -130,6 +130,8 @@ public sealed class PreviewLeaveRequestTests : ApiTestBase
         var preview = await PreviewAsync(new LeaveRequestDraftRequest(new DateOnly(2026, 6, 8), new DateOnly(2026, 6, 12), LeaveType.SickLeave));
 
         Assert.Equal(LeaveRequestErrors.MedicalCertificateRequired, preview.ErrorCode);
+        // What the certificate is for: these days come back once it is attached.
+        Assert.Equal(5m, preview.ReturnedVacationDays);
     }
 
     [Theory]

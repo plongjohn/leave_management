@@ -28,17 +28,13 @@ internal sealed class LeaveRequestService(
         var draft = request.ToDraft();
         var submission = await LoadSubmissionAsync(employeeId, draft.Period, cancellationToken);
 
-        LeaveRequest? leaveRequest = null;
-        string? errorCode = null;
-        try
-        {
-            leaveRequest = LeaveRequest.Submit(submission.Employee, draft, submission.Context);
-        }
-        catch (BusinessRuleViolationException violation)
-        {
-            // Expected here: the preview reports the violated rule instead of failing.
-            errorCode = violation.Code;
-        }
+        var (leaveRequest, errorCode) = TrySubmit(submission, draft);
+
+        // When only the certificate is missing, the employee still learns what it is for: the
+        // vacation days that come back once it is attached. The error code stays.
+        var sickLeave = errorCode == LeaveRequestErrors.MedicalCertificateRequired
+            ? TrySubmit(submission, draft with { HasMedicalCertificate = true }).Request
+            : leaveRequest;
 
         var needsApproval = draft.Type != LeaveType.SickLeave;
 
@@ -46,7 +42,7 @@ internal sealed class LeaveRequestService(
             submission.Context.Calendar.CountWorkingDays(draft.Period),
             [.. submission.Holidays.Select(holiday => new HolidayResponse(holiday.Date, holiday.Name, holiday.Kind))],
             leaveRequest is { Type: LeaveType.Vacation } ? AvailableDaysAfter(submission, leaveRequest) : null,
-            leaveRequest is { Type: LeaveType.SickLeave } ? ReturnedVacationDays(submission, leaveRequest) : 0m,
+            sickLeave is { Type: LeaveType.SickLeave } ? ReturnedVacationDays(submission, sickLeave) : 0m,
             errorCode,
             needsApproval,
             needsApproval ? await ManagerNameAsync(submission.Employee.ManagerId, cancellationToken) : null,
@@ -186,6 +182,19 @@ internal sealed class LeaveRequestService(
     }
 
     // Other sick leave cannot overlap the new one, so only the new sick leave returns these days.
+    // Expected in the preview: a violated rule is reported instead of failing the request.
+    private static (LeaveRequest? Request, string? ErrorCode) TrySubmit(Submission submission, LeaveRequestDraft draft)
+    {
+        try
+        {
+            return (LeaveRequest.Submit(submission.Employee, draft, submission.Context), null);
+        }
+        catch (BusinessRuleViolationException violation)
+        {
+            return (null, violation.Code);
+        }
+    }
+
     private static decimal ReturnedVacationDays(Submission submission, LeaveRequest newSickLeave) =>
         submission.Context.ExistingRequests
             .Where(request => request.Type == LeaveType.Vacation && request.Status == LeaveRequestStatus.Approved)

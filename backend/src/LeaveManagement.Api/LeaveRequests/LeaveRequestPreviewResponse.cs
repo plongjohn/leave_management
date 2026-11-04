@@ -9,7 +9,10 @@ namespace LeaveManagement.Api.LeaveRequests;
 /// <param name="WorkingDays">The working days in the period, holidays and half days considered.</param>
 /// <param name="HolidaysInPeriod">Holidays and company days in the period, to explain the count.</param>
 /// <param name="AvailableDaysAfter">Vacation only: the days still available in the start year afterwards.</param>
-/// <param name="ReturnedVacationDays">Sick leave only: approved vacation days that would come back.</param>
+/// <param name="ReturnedVacationDays">
+/// Sick leave only: approved vacation days that would come back – also when only the medical
+/// certificate is missing, so the client can say what the certificate is for.
+/// </param>
 /// <param name="ErrorCode">The rule the request would violate, or <c>null</c> if it can be submitted.</param>
 /// <param name="NeedsApproval">False for sick leave, which is approved when reported.</param>
 /// <param name="ApproverName">The manager who decides; <c>null</c> when HR decides or no approval is needed.</param>
