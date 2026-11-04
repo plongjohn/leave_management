@@ -241,8 +241,91 @@ describe('RequestDialog', () => {
       startDate: '2026-11-02',
       endDate: '2026-11-03',
       comment: null,
+      certificate: null,
     });
     expect(service.submit).not.toHaveBeenCalled();
+  });
+
+  describe('sick leave during approved vacation', () => {
+    const certificateNeeded = (): Observable<LeaveRequestPreview> =>
+      of({
+        ...okPreview,
+        availableDaysAfter: null,
+        returnedVacationDays: 3,
+        errorCode: 'leave_request.medical_certificate_required',
+        needsApproval: false,
+        approverName: null,
+      });
+
+    async function reportSickLeave(): Promise<Rendered> {
+      const rendered = await render(undefined, certificateNeeded);
+      chooseType(rendered.element, 'Krankmeldung');
+      await rendered.refresh();
+      enterPeriod(rendered.element, '16.11.2026', '20.11.2026');
+      await rendered.refresh();
+      return rendered;
+    }
+
+    function attach(element: HTMLElement, file: File): void {
+      const input = element.querySelector<HTMLInputElement>('lm-certificate-upload input')!;
+      Object.defineProperty(input, 'files', { value: [file] });
+      input.dispatchEvent(new Event('change'));
+    }
+
+    it('explains why a certificate is needed instead of reporting a violated rule', async () => {
+      const { element, service } = await reportSickLeave();
+
+      expect(service.preview).toHaveBeenCalledWith(expect.objectContaining({ type: 'SickLeave' }));
+      expect(element.querySelector('.warning')?.textContent).toContain(
+        '3 Tage Urlaub bekommst du zurück. Dafür ist eine ärztliche Bestätigung Pflicht.',
+      );
+      expect(element.querySelector('lm-request-preview [role="alert"]')).toBeNull();
+      expect(element.querySelector('lm-certificate-upload .label')?.textContent).toContain('*');
+      expect(submitButton(element).disabled).toBe(false);
+    });
+
+    it('does not send without the certificate', async () => {
+      const { element, service, refresh } = await reportSickLeave();
+
+      submitButton(element).click();
+      await refresh();
+
+      expect(element.querySelector('lm-certificate-upload [role="alert"]')?.textContent).toContain(
+        'Bitte lade die ärztliche Bestätigung hoch.',
+      );
+      expect(service.reportSickLeave).not.toHaveBeenCalled();
+    });
+
+    it('sends the report together with the certificate', async () => {
+      const { element, service, refresh } = await reportSickLeave();
+      const pdf = new File(['%PDF-1.7'], 'attest.pdf', { type: 'application/pdf' });
+
+      attach(element, pdf);
+      await refresh();
+      submitButton(element).click();
+      await refresh();
+
+      expect(service.reportSickLeave).toHaveBeenCalledWith({
+        startDate: '2026-11-16',
+        endDate: '2026-11-20',
+        comment: null,
+        certificate: pdf,
+      });
+    });
+
+    it('rejects files the backend would not accept', async () => {
+      const { element, service, refresh } = await reportSickLeave();
+
+      attach(element, new File(['GIF89a'], 'foto.gif', { type: 'image/gif' }));
+      await refresh();
+      submitButton(element).click();
+      await refresh();
+
+      expect(element.querySelector('lm-certificate-upload [role="alert"]')?.textContent).toContain(
+        'Bitte wähle eine PDF-, JPG- oder PNG-Datei.',
+      );
+      expect(service.reportSickLeave).not.toHaveBeenCalled();
+    });
   });
 
   it('asks for a preview once the period is complete and shows it', async () => {

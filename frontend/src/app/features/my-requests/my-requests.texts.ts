@@ -81,6 +81,8 @@ export const requestDialogTexts = {
     `${label} (max. ${days}${perWorkingYear ? ' pro Arbeitsjahr' : ''})`,
   workingDay: 'Arbeitstag',
   workingDays: 'Arbeitstage',
+  day: 'Tag',
+  days: 'Tage',
   periodLabel: 'Zeitraum',
   start: 'Von',
   end: 'Bis',
@@ -121,6 +123,22 @@ export const requestPreviewTexts = {
     `${names} ${count === 1 ? 'ist' : 'sind'} in diesem Zeitraum ebenfalls abwesend.`,
   approver: (name: string) => `${name} entscheidet über deinen Antrag.`,
   approverHr: 'Die Personalabteilung entscheidet über deinen Antrag.',
+} as const;
+
+export const certificateTexts = {
+  label: 'Ärztliche Bestätigung',
+  optional: '(optional)',
+  choose: 'Datei hierher ziehen oder',
+  chooseLink: 'auswählen',
+  hint: 'PDF, JPG oder PNG, max. 5 MB · nur für dich und die Personalabteilung sichtbar',
+  remove: (name: string) => `${name} entfernen`,
+  required: 'Bitte lade die ärztliche Bestätigung hoch.',
+  wrongType: 'Bitte wähle eine PDF-, JPG- oder PNG-Datei.',
+  tooLarge: 'Die Datei darf höchstens 5 MB groß sein.',
+  duringVacation: (returnedDays: string) =>
+    `Die Krankmeldung überschneidet sich mit deinem genehmigten Urlaub. Jeder Krankheitstag zählt ` +
+    `als Krankenstand: ${returnedDays} Urlaub bekommst du zurück. Dafür ist eine ärztliche ` +
+    `Bestätigung Pflicht.`,
 } as const;
 
 export const cancelTexts = {

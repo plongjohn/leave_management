@@ -90,3 +90,20 @@
   background: var(--mat-sys-error-container);
   color: var(--mat-sys-on-error-container);
 }
+
+// Amber like the "Offen" chip: something is still needed, nothing is wrong yet.
+.warning {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff1cc;
+  color: #4d3500;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+
+  mat-icon {
+    flex: none;
+  }
+}

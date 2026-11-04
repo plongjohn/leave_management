@@ -51,10 +51,20 @@
     </mat-form-field>
 
     <lm-request-preview
-      [preview]="previewValue()"
+      [preview]="displayedPreview()"
       [loading]="previewLoading()"
       [failed]="previewFailed()"
     />
+
+    @if (!requestForm.certificate().hidden()) {
+      @if (certificateRequired()) {
+        <p class="warning">
+          <mat-icon aria-hidden="true">warning</mat-icon>
+          <span>{{ certificateTexts.duringVacation(returnedDays()) }}</span>
+        </p>
+      }
+      <lm-certificate-upload [formField]="requestForm.certificate" />
+    }
 
     <mat-form-field appearance="outline">
       <mat-label>{{ texts.commentLabel }}</mat-label>

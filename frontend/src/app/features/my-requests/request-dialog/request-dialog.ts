@@ -36,10 +36,18 @@ import { LEAVE_TYPES, LeaveType, SpecialLeaveReason } from '../../../shared/leav
 import { leaveTypeLabels, specialLeaveReasonLabels } from '../../../shared/leave/leave.texts';
 import { LeaveRequestDraft, MyLeaveRequest } from '../my-requests.models';
 import { MyRequestsService } from '../my-requests.service';
-import { myRequestErrorText, requestDialogTexts } from '../my-requests.texts';
+import { certificateTexts, myRequestErrorText, requestDialogTexts } from '../my-requests.texts';
+import {
+  CERTIFICATE_MAX_BYTES,
+  CERTIFICATE_TYPES,
+  CertificateUpload,
+} from '../certificate-upload/certificate-upload';
 import { RequestPreview } from '../request-preview/request-preview';
 
 const texts = requestDialogTexts;
+
+/** The preview's answer when a sick leave needs a certificate that is not attached yet. */
+const CERTIFICATE_REQUIRED = 'leave_request.medical_certificate_required';
 
 /** How long the dialog waits after the last change before it asks the backend for a preview. */
 export const PREVIEW_DEBOUNCE_MS = new InjectionToken<number>('PREVIEW_DEBOUNCE_MS', {
@@ -63,6 +71,7 @@ interface RequestFormModel {
   start: Date | null;
   end: Date | null;
   comment: string;
+  certificate: File | null;
 }
 
 /**
@@ -72,6 +81,7 @@ interface RequestFormModel {
 @Component({
   selector: 'lm-request-dialog',
   imports: [
+    CertificateUpload,
     FormField,
     FormRoot,
     MatButtonModule,
@@ -95,6 +105,7 @@ export class RequestDialog {
   private readonly previewDebounceMs = inject(PREVIEW_DEBOUNCE_MS);
 
   protected readonly texts = texts;
+  protected readonly certificateTexts = certificateTexts;
   protected readonly types = LEAVE_TYPES.map((type) => ({
     type,
     label: leaveTypeLabels[type],
@@ -107,6 +118,7 @@ export class RequestDialog {
     start: null,
     end: null,
     comment: '',
+    certificate: null,
   });
 
   protected readonly requestForm = form(
@@ -137,6 +149,22 @@ export class RequestDialog {
 
       maxLength(path.comment, COMMENT_MAX_LENGTH, {
         message: texts.commentTooLong(COMMENT_MAX_LENGTH),
+      });
+
+      // Sick leave only; mandatory when the preview says the backend will ask for it.
+      hidden(path.certificate, { when: ({ valueOf }) => valueOf(path.type) !== 'SickLeave' });
+      required(path.certificate, {
+        when: () => this.certificateRequired(),
+        message: certificateTexts.required,
+      });
+      validate(path.certificate, ({ value }) => {
+        const file = value();
+        if (file && !CERTIFICATE_TYPES.includes(file.type)) {
+          return { kind: 'certificate_type', message: certificateTexts.wrongType };
+        }
+        return file && file.size > CERTIFICATE_MAX_BYTES
+          ? { kind: 'certificate_size', message: certificateTexts.tooLarge }
+          : undefined;
       });
     },
     { submission: { action: () => this.send() } },
@@ -200,6 +228,9 @@ export class RequestDialog {
    * The request as the preview endpoint expects it, or `undefined` while the period or the reason
    * is missing or the period is one the form already rejects. The comment is not part of it, so
    * typing a comment causes no request.
+   *
+   * Sick leave is always previewed without a certificate: the answer then tells whether one is
+   * needed, independent of whether a file is attached yet.
    */
   private readonly draft = computed<LeaveRequestDraft | undefined>(() => {
     const { type, specialLeaveReason, start, end } = this.model();
@@ -240,14 +271,30 @@ export class RequestDialog {
     stream: ({ params: draft }) => this.myRequests.preview(draft),
   });
 
-  protected readonly previewValue = computed(() =>
+  private readonly previewValue = computed(() =>
     this.preview.hasValue() ? this.preview.value() : undefined,
   );
   protected readonly previewLoading = computed(() => this.preview.isLoading());
   protected readonly previewFailed = computed(() => !!this.preview.error());
 
+  /** Sick leave of more than three working days during approved vacation (ADR 0007 addendum). */
+  protected readonly certificateRequired = computed(
+    () => this.previewValue()?.errorCode === CERTIFICATE_REQUIRED,
+  );
+
+  /** "x Tage": the vacation days that come back, for the warning above the upload. */
+  protected readonly returnedDays = computed(() =>
+    formatDayCount(this.previewValue()?.returnedVacationDays ?? 0, texts.day, texts.days),
+  );
+
+  /** The missing certificate is shown as warning and upload field, not as a violated rule. */
+  protected readonly displayedPreview = computed(() => {
+    const preview = this.previewValue();
+    return preview && this.certificateRequired() ? { ...preview, errorCode: null } : preview;
+  });
+
   /** The backend would reject the request; sending makes no sense until the input changes. */
-  protected readonly blockedByRule = computed(() => !!this.previewValue()?.errorCode);
+  protected readonly blockedByRule = computed(() => !!this.displayedPreview()?.errorCode);
 
   /** Runs only when the form is valid; a rejection becomes a form error instead of an exception. */
   private async send(): Promise<TreeValidationResult> {
@@ -261,12 +308,12 @@ export class RequestDialog {
 
   /** Sick leave goes as multipart form to its own endpoint (ADR 0008). */
   private request(): Observable<MyLeaveRequest> {
-    const { type, specialLeaveReason, start, end, comment } = this.model();
+    const { type, specialLeaveReason, start, end, comment, certificate } = this.model();
     const period = { startDate: toIsoDate(start!), endDate: toIsoDate(end!) };
     const trimmedComment = comment.trim() || null;
 
     if (type === 'SickLeave') {
-      return this.myRequests.reportSickLeave({ ...period, comment: trimmedComment });
+      return this.myRequests.reportSickLeave({ ...period, comment: trimmedComment, certificate });
     }
     return this.myRequests.submit({
       ...period,
