@@ -5,6 +5,9 @@ import { MAT_DATE_LOCALE, MatDateFormats } from '@angular/material/core';
 import { provideDateFnsAdapter } from '@angular/material-date-fns-adapter';
 import { deAT } from 'date-fns/locale';
 
+/** The one locale of the app (company in Austria). */
+export const APP_LOCALE = 'de-AT';
+
 /** Formats for Material date pickers (date-fns tokens). */
 export const APP_DATE_FORMATS: MatDateFormats = {
   parse: {
@@ -24,10 +27,10 @@ export const APP_DATE_FORMATS: MatDateFormats = {
  * Material date pickers via the date-fns adapter. The week starts on Monday (part of `deAT`).
  */
 export function provideAppLocale(): EnvironmentProviders {
-  registerLocaleData(localeDeAt);
+  registerLocaleData(localeDeAt, APP_LOCALE);
 
   return makeEnvironmentProviders([
-    { provide: LOCALE_ID, useValue: 'de-AT' },
+    { provide: LOCALE_ID, useValue: APP_LOCALE },
     { provide: MAT_DATE_LOCALE, useValue: deAT },
     provideDateFnsAdapter(APP_DATE_FORMATS),
   ]);
