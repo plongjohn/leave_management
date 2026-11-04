@@ -9,22 +9,21 @@ namespace LeaveManagement.Domain.LeaveRequests;
 /// </summary>
 public static class SpecialLeavePolicy
 {
-    /// <summary>Care leave: one working week per working year (§ 16 UrlG, five-day week).</summary>
-    public const decimal CareLeaveDaysPerWorkingYear = 5m;
-
-    private static readonly Dictionary<SpecialLeaveReason, decimal> MaxDaysPerOccasion = new()
+    private static readonly Dictionary<SpecialLeaveReason, SpecialLeaveLimit> Limits = new()
     {
-        [SpecialLeaveReason.OwnWedding] = 3m,
-        [SpecialLeaveReason.BirthOfChild] = 1m,
-        [SpecialLeaveReason.DeathOfCloseRelative] = 3m,
-        [SpecialLeaveReason.DeathOfRelative] = 1m,
-        [SpecialLeaveReason.WeddingOfChildOrSibling] = 1m,
-        [SpecialLeaveReason.Relocation] = 2m,
+        [SpecialLeaveReason.OwnWedding] = new(3m, SpecialLeaveLimitPeriod.Occasion),
+        [SpecialLeaveReason.BirthOfChild] = new(1m, SpecialLeaveLimitPeriod.Occasion),
+        [SpecialLeaveReason.DeathOfCloseRelative] = new(3m, SpecialLeaveLimitPeriod.Occasion),
+        [SpecialLeaveReason.DeathOfRelative] = new(1m, SpecialLeaveLimitPeriod.Occasion),
+        [SpecialLeaveReason.WeddingOfChildOrSibling] = new(1m, SpecialLeaveLimitPeriod.Occasion),
+        [SpecialLeaveReason.Relocation] = new(2m, SpecialLeaveLimitPeriod.Occasion),
+
+        // One working week per working year (§ 16 UrlG, five-day week).
+        [SpecialLeaveReason.CareLeave] = new(5m, SpecialLeaveLimitPeriod.WorkingYear),
     };
 
-    /// <summary>The maximum working days for one occasion; <c>null</c> for care leave, which is limited per working year.</summary>
-    public static decimal? MaxWorkingDaysPerOccasion(SpecialLeaveReason reason) =>
-        MaxDaysPerOccasion.TryGetValue(reason, out var days) ? days : null;
+    /// <summary>The limit of a reason; every reason has one.</summary>
+    public static SpecialLeaveLimit LimitFor(SpecialLeaveReason reason) => Limits[reason];
 
     /// <summary>The working year starts on the anniversary of the entry date.</summary>
     public static DateOnly WorkingYearStart(DateOnly entryDate, DateOnly date)
@@ -43,26 +42,27 @@ public static class SpecialLeavePolicy
         var reason = newRequest.SpecialLeaveReason
             ?? throw new ArgumentException("Must be a special leave request.", nameof(newRequest));
 
-        if (reason != SpecialLeaveReason.CareLeave)
+        var limit = LimitFor(reason);
+
+        if (limit.Period == SpecialLeaveLimitPeriod.Occasion)
         {
-            var maxDays = MaxDaysPerOccasion[reason];
-            if (newRequest.WorkingDays > maxDays)
+            if (newRequest.WorkingDays > limit.MaxWorkingDays)
             {
-                throw LeaveRequestErrors.SpecialLeaveLimitExceededViolation(reason, maxDays);
+                throw LeaveRequestErrors.SpecialLeaveLimitExceededViolation(reason, limit.MaxWorkingDays);
             }
 
             return;
         }
 
-        var careLeaveDays = activeRequests
-            .Where(request => request.SpecialLeaveReason == SpecialLeaveReason.CareLeave)
+        var daysPerWorkingYear = activeRequests
+            .Where(request => request.SpecialLeaveReason == reason)
             .Append(newRequest)
             .SelectMany(request => request.Days)
             .GroupBy(day => WorkingYearStart(employee.EntryDate, day.Date));
 
-        if (careLeaveDays.Any(workingYear => workingYear.Sum(day => day.WorkingDays) > CareLeaveDaysPerWorkingYear))
+        if (daysPerWorkingYear.Any(workingYear => workingYear.Sum(day => day.WorkingDays) > limit.MaxWorkingDays))
         {
-            throw LeaveRequestErrors.SpecialLeaveLimitExceededViolation(reason, CareLeaveDaysPerWorkingYear);
+            throw LeaveRequestErrors.SpecialLeaveLimitExceededViolation(reason, limit.MaxWorkingDays);
         }
     }
 }

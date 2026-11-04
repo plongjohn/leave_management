@@ -112,10 +112,16 @@ public sealed class SpecialLeaveTests
     }
 
     [Fact]
-    public void MaxWorkingDaysPerOccasion_CareLeave_ReturnsNull()
+    public void LimitFor_EveryReason_HasALimit()
     {
-        Assert.Null(SpecialLeavePolicy.MaxWorkingDaysPerOccasion(SpecialLeaveReason.CareLeave));
-        Assert.Equal(3m, SpecialLeavePolicy.MaxWorkingDaysPerOccasion(SpecialLeaveReason.OwnWedding));
+        Assert.All(Enum.GetValues<SpecialLeaveReason>(), reason => Assert.True(SpecialLeavePolicy.LimitFor(reason).MaxWorkingDays > 0));
+    }
+
+    [Fact]
+    public void LimitFor_CareLeave_IsPerWorkingYear()
+    {
+        Assert.Equal(new SpecialLeaveLimit(5m, SpecialLeaveLimitPeriod.WorkingYear), SpecialLeavePolicy.LimitFor(SpecialLeaveReason.CareLeave));
+        Assert.Equal(new SpecialLeaveLimit(3m, SpecialLeaveLimitPeriod.Occasion), SpecialLeavePolicy.LimitFor(SpecialLeaveReason.OwnWedding));
     }
 
     private LeaveRequest SubmitSpecialLeave(

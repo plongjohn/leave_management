@@ -54,6 +54,10 @@ internal static class LeaveRequestEndpoints
             // token in the Authorization header, which a foreign site cannot send.
             .DisableAntiforgery();
 
+        endpoints.MapGet("/api/special-leave-reasons", GetSpecialLeaveReasons)
+            .WithName("GetSpecialLeaveReasons")
+            .WithTags("Leave requests");
+
         // Not under "me": HR opens the certificates of other employees, too.
         endpoints.MapGet("/api/leave-requests/{id:guid}/medical-certificate", GetMedicalCertificateAsync)
             .WithName("GetMedicalCertificate")
@@ -91,6 +95,11 @@ internal static class LeaveRequestEndpoints
     {
         return TypedResults.Ok(await queries.GetMyBalanceAsync(user.GetEmployeeId(), cancellationToken));
     }
+
+    // In the order of the enum, which is the order of the dialog's drop-down.
+    private static Ok<IReadOnlyList<SpecialLeaveReasonResponse>> GetSpecialLeaveReasons() =>
+        TypedResults.Ok<IReadOnlyList<SpecialLeaveReasonResponse>>(
+            [.. Enum.GetValues<SpecialLeaveReason>().Select(SpecialLeaveReasonResponse.From)]);
 
     private static async Task<Ok<LeaveRequestPreviewResponse>> PreviewLeaveRequestAsync(
         LeaveRequestDraftRequest request,

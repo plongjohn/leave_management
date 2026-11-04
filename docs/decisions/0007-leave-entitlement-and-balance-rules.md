@@ -73,6 +73,8 @@ are typical collective agreement values and kept in code for the MVP:
 | Care leave (Pflegefreistellung, § 16 UrlG) | 5 per working year |
 
 The working year for care leave starts on the anniversary of the entry date.
+The request dialog shows the limits before any date is chosen; it reads them from
+`GET /api/special-leave-reasons` instead of keeping a copy (added 2026-11-04, phase 6a).
 
 ### Shape of the domain code
 
