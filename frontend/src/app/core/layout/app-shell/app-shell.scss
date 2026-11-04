@@ -1,8 +1,14 @@
+@use '@angular/material' as mat;
+
+// Toolbar on top, below it the side navigation and the page; only the page scrolls.
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
 }
 
 .toolbar {
+  flex: none;
   gap: 16px;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   background: var(--mat-sys-surface);
@@ -55,6 +61,32 @@
 .user-role {
   font-size: 0.75rem;
   color: var(--mat-sys-on-surface-variant);
+}
+
+.container {
+  flex: 1 1 auto;
+  background: var(--mat-sys-surface);
+}
+
+.sidenav {
+  width: 232px;
+  padding: 8px 4px;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+
+  @include mat.sidenav-overrides(
+    (
+      container-background-color: var(--mat-sys-surface-container-low),
+      container-shape: 0,
+    )
+  );
+
+  // Active entry as a green pill, like the approved screen preview.
+  @include mat.list-overrides(
+    (
+      active-indicator-color: var(--mat-sys-primary-container),
+      active-indicator-shape: 22px,
+    )
+  );
 }
 
 .content {
